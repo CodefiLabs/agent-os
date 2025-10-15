@@ -496,6 +496,9 @@ should_skip_file() {
         "standard")
             [[ "$overwrite_type" == "true" ]] && return 1
             ;;
+        "automation")
+            [[ "$overwrite_type" == "true" ]] && return 1
+            ;;
     esac
 
     return 0  # Skip file
@@ -960,6 +963,30 @@ compile_command() {
 # Version Functions
 # -----------------------------------------------------------------------------
 
+# Detect repository URL from git remote or use default
+detect_repo_url() {
+    # If REPO_URL is already set via environment, use it
+    if [[ -n "${REPO_URL:-}" ]]; then
+        echo "$REPO_URL"
+        return
+    fi
+
+    # Try to detect from git remote in base directory
+    local base_dir=${BASE_DIR:-"$HOME/agent-os"}
+    if [[ -d "$base_dir/.git" ]]; then
+        local git_url=$(cd "$base_dir" && git remote get-url origin 2>/dev/null || echo "")
+        if [[ -n "$git_url" ]]; then
+            # Convert git URL to https URL and remove .git suffix
+            git_url=$(echo "$git_url" | sed 's|^git@github.com:|https://github.com/|' | sed 's|\.git$||')
+            echo "$git_url"
+            return
+        fi
+    fi
+
+    # Fall back to default
+    echo "https://github.com/buildermethods/agent-os"
+}
+
 # Compare versions (returns 0 if compatible, 1 if not)
 check_version_compatibility() {
     local base_version=$1
@@ -974,6 +1001,104 @@ check_version_compatibility() {
     fi
 
     return 0
+}
+
+# Get latest version from GitHub
+get_latest_version() {
+    local repo_url=$(detect_repo_url)
+    local config_url="${repo_url}/raw/main/config.yml"
+    curl -sL "$config_url" 2>/dev/null | grep "^version:" | sed 's/version: *//' | tr -d '\r\n'
+}
+
+# Check for base installation updates
+# Returns: 0 if update available, 1 if up to date or check failed
+check_for_base_updates() {
+    local base_dir=${BASE_DIR:-"$HOME/agent-os"}
+    local skip_prompt=${1:-false}
+
+    # Only check if base installation exists
+    if [[ ! -f "$base_dir/config.yml" ]]; then
+        return 1
+    fi
+
+    # Get current version
+    local current_version=$(get_yaml_value "$base_dir/config.yml" "version" "")
+    if [[ -z "$current_version" ]]; then
+        return 1
+    fi
+
+    # Detect repo URL for version check and potential update
+    local repo_url=$(detect_repo_url)
+
+    # Get latest version from GitHub
+    local latest_version=$(get_latest_version)
+    if [[ -z "$latest_version" ]]; then
+        print_verbose "Could not fetch latest version from GitHub"
+        return 1
+    fi
+
+    print_verbose "Current version: $current_version, Latest version: $latest_version"
+
+    # Compare versions
+    if [[ "$current_version" == "$latest_version" ]]; then
+        return 1  # Up to date
+    fi
+
+    # Update available
+    if [[ "$skip_prompt" == "true" ]]; then
+        return 0  # Just return that update is available
+    fi
+
+    # Prompt user
+    echo ""
+    print_warning "Agent OS Update Available"
+    echo ""
+    echo "  Current version: $current_version"
+    echo "  Latest version:  $latest_version"
+    echo ""
+    echo "It is recommended to update your base installation before continuing."
+    echo ""
+    echo "Would you like to update now?"
+    echo ""
+    echo "1) Yes, update now"
+    echo "2) No, continue without updating"
+    echo ""
+
+    read -p "Enter your choice (1-2): " choice < /dev/tty
+
+    case $choice in
+        1)
+            echo ""
+            print_status "Updating Agent OS..."
+
+            # Run base-install.sh to update (use detected repo URL)
+            local update_url="${repo_url}/raw/main/scripts/base-install.sh"
+            if curl -sSL "$update_url" 2>/dev/null | bash; then
+                echo ""
+                print_success "Agent OS has been updated to version $latest_version"
+                echo ""
+                print_status "Please re-run your command to continue"
+                exit 0
+            else
+                echo ""
+                print_error "Update failed. Continuing with current version..."
+                echo ""
+                return 1
+            fi
+            ;;
+        2)
+            echo ""
+            print_status "Continuing with current version..."
+            echo ""
+            return 1
+            ;;
+        *)
+            echo ""
+            print_warning "Invalid choice. Continuing with current version..."
+            echo ""
+            return 1
+            ;;
+    esac
 }
 
 # -----------------------------------------------------------------------------
