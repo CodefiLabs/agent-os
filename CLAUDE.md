@@ -178,14 +178,20 @@ Agents use double-brace template syntax to include content:
 
 ### Creating Custom Roles
 
-Use the provided script to create new implementer or verifier roles:
+Use the provided script to create new implementer, verifier, or researcher roles:
 
 ```bash
 ~/.agent-os/scripts/create-role.sh --type implementer --name custom-engineer
 ~/.agent-os/scripts/create-role.sh --type verifier --name custom-verifier
+~/.agent-os/scripts/create-role.sh --type researcher --name custom-researcher
 ```
 
 This creates the role definition in YAML and generates the corresponding agent file.
+
+**Available Templates:**
+- `implementer.md` - For agents that implement features and write code
+- `verifier.md` - For agents that verify and validate implementations
+- `researcher.md` - For agents that gather information and conduct research (e.g., web search researchers, codebase analyzers, pattern finders)
 
 ## Standards and Conventions
 
