@@ -1,0 +1,5 @@
+# Custom MCP Servers
+
+Add your custom MCP server definitions here.
+
+Each JSON file should follow the same format as the provided servers in the parent directory.

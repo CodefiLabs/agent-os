@@ -32,6 +32,9 @@ OVERWRITE_STANDARDS="false"
 OVERWRITE_COMMANDS="false"
 OVERWRITE_AGENTS="false"
 OVERWRITE_AUTOMATIONS="false"
+INSTALL_TOOLS=""
+TOOLS_SCOPE=""
+OVERWRITE_TOOLS="false"
 INSTALLED_FILES=()
 
 # -----------------------------------------------------------------------------
@@ -56,6 +59,9 @@ Options:
     --overwrite-commands        Overwrite existing commands during update
     --overwrite-agents          Overwrite existing agents during update
     --overwrite-automations     Overwrite existing automation files during update
+    --install-tools [BOOL]      Install MCP tools (default: prompt)
+    --tools-scope [user|project] Tools installation scope (default: user)
+    --overwrite-tools           Overwrite existing tools during update
     --dry-run                   Show what would be done without doing it
     --verbose                   Show detailed output
     -h, --help                  Show this help message
@@ -119,6 +125,18 @@ parse_arguments() {
                 ;;
             --overwrite-automations)
                 OVERWRITE_AUTOMATIONS="true"
+                shift
+                ;;
+            --install-tools)
+                read INSTALL_TOOLS shift_count <<< "$(parse_bool_flag "$INSTALL_TOOLS" "$2")"
+                shift $shift_count
+                ;;
+            --tools-scope)
+                TOOLS_SCOPE="$2"
+                shift 2
+                ;;
+            --overwrite-tools)
+                OVERWRITE_TOOLS="true"
                 shift
                 ;;
             --dry-run)
@@ -597,6 +615,116 @@ run_automation_setup_scripts() {
     done
 }
 
+# Install tools documentation
+install_tools() {
+    if [[ "$DRY_RUN" != "true" ]]; then
+        print_status "Installing tools"
+    fi
+
+    local tools_count=0
+
+    # Copy tools documentation to agent-os/tools/
+    while read file; do
+        if [[ "$file" == tools/README.md ]] || [[ "$file" == tools/setup/README.md ]]; then
+            local source=$(get_profile_file "$EFFECTIVE_PROFILE" "$file" "$BASE_DIR")
+            if [[ -f "$source" ]]; then
+                local dest="$PROJECT_DIR/agent-os/$file"
+                local installed_file=$(copy_file "$source" "$dest")
+                if [[ -n "$installed_file" ]]; then
+                    INSTALLED_FILES+=("$installed_file")
+                    ((tools_count++)) || true
+                fi
+            fi
+        fi
+    done < <(get_profile_files "$EFFECTIVE_PROFILE" "$BASE_DIR" "tools")
+
+    if [[ "$DRY_RUN" != "true" ]] && [[ $tools_count -gt 0 ]]; then
+        echo "✓ Installed $tools_count tools documentation file(s)"
+    fi
+}
+
+# Run tools setup scripts
+run_tools_setup_scripts() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        return
+    fi
+
+    local profile_tools="$BASE_DIR/profiles/$EFFECTIVE_PROFILE/tools"
+
+    # Check if tools directory exists
+    if [[ ! -d "$profile_tools/setup" ]]; then
+        return
+    fi
+
+    # Determine if we should install tools
+    local should_install="$INSTALL_TOOLS"
+    local effective_scope="${TOOLS_SCOPE:-user}"
+
+    # If not specified via flag, prompt user (if interactive)
+    if [[ -z "$should_install" ]]; then
+        if [[ -t 0 ]]; then
+            echo ""
+            print_status "MCP Tools Setup"
+            echo ""
+            echo "Agent OS can install pre-configured MCP servers to enhance your AI coding environment."
+            echo ""
+            read -p "Install MCP tools? (y/N): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                should_install="true"
+
+                # Ask for scope
+                echo ""
+                echo "Choose installation scope:"
+                echo "  1) User scope - available in all projects (~/.claude.json or ~/.cursor/mcp.json)"
+                echo "  2) Project scope - version controlled, shared with team (.mcp.json)"
+                echo ""
+                read -p "Enter choice (1 or 2, default 1): " -n 1 -r scope_choice
+                echo ""
+                if [[ "$scope_choice" == "2" ]]; then
+                    effective_scope="project"
+                else
+                    effective_scope="user"
+                fi
+            else
+                should_install="false"
+            fi
+        else
+            # Non-interactive, skip
+            return
+        fi
+    fi
+
+    # If user chose not to install, skip
+    if [[ "$should_install" != "true" ]]; then
+        echo "Skipped MCP tools installation"
+        echo "You can install them later with:"
+        echo "  $BASE_DIR/profiles/$EFFECTIVE_PROFILE/tools/setup/claude-code.sh --scope user"
+        echo "  $BASE_DIR/profiles/$EFFECTIVE_PROFILE/tools/setup/cursor.sh --scope user"
+        return
+    fi
+
+    # Detect which AI tool to configure
+    local tool_script=""
+    if [[ "$EFFECTIVE_MULTI_AGENT_TOOL" == "claude-code" ]]; then
+        tool_script="$profile_tools/setup/claude-code.sh"
+    elif command -v cursor &> /dev/null; then
+        tool_script="$profile_tools/setup/cursor.sh"
+    else
+        # Default to Claude Code
+        tool_script="$profile_tools/setup/claude-code.sh"
+    fi
+
+    # Run the setup script
+    if [[ -f "$tool_script" && -x "$tool_script" ]]; then
+        echo ""
+        print_status "Installing MCP servers..."
+        (cd "$PROJECT_DIR" && PROJECT_ROOT="$PROJECT_DIR" SCOPE="$effective_scope" bash "$tool_script")
+    else
+        print_warning "Tools setup script not found or not executable: $tool_script"
+    fi
+}
+
 # Create agent-os folder structure
 create_agent_os_folder() {
     if [[ "$DRY_RUN" != "true" ]]; then
@@ -648,6 +776,7 @@ perform_installation() {
         create_agent_os_folder
         install_standards
         install_roles
+        install_tools
         if [[ "$EFFECTIVE_SINGLE_AGENT_MODE" == "true" ]]; then
             install_single_agent_commands
         fi
@@ -674,6 +803,9 @@ perform_installation() {
         install_roles
         echo ""
 
+        install_tools
+        echo ""
+
         if [[ "$EFFECTIVE_SINGLE_AGENT_MODE" == "true" ]]; then
             install_single_agent_commands
             echo ""
@@ -686,6 +818,9 @@ perform_installation() {
             echo ""
             run_automation_setup_scripts
         fi
+
+        # Run tools setup after automations
+        run_tools_setup_scripts
     fi
 
     if [[ "$DRY_RUN" == "true" ]]; then

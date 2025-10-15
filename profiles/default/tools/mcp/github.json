@@ -1,0 +1,30 @@
+{
+  "server_id": "github",
+  "description": "GitHub repository integration for code reading, issue management, and PR operations",
+  "command": "npx",
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-github"
+  ],
+  "env": {
+    "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+  },
+  "transport": "stdio",
+  "install_command": "npm install -g @modelcontextprotocol/server-github",
+  "required_secrets": [
+    "GITHUB_TOKEN"
+  ],
+  "capabilities": [
+    "resources",
+    "tools"
+  ],
+  "tags": [
+    "github",
+    "version-control",
+    "code-review",
+    "issues",
+    "pull-requests"
+  ],
+  "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+  "setup_instructions": "Create a GitHub personal access token with repo scope at https://github.com/settings/tokens"
+}

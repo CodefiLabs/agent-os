@@ -1,0 +1,31 @@
+{
+  "server_id": "memory",
+  "description": "Persistent memory and context storage across sessions for maintaining long-term context",
+  "command": "npx",
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-memory"
+  ],
+  "env": {},
+  "transport": "stdio",
+  "install_command": "npm install -g @modelcontextprotocol/server-memory",
+  "required_secrets": [],
+  "capabilities": [
+    "resources",
+    "tools"
+  ],
+  "tags": [
+    "memory",
+    "context",
+    "persistence",
+    "knowledge"
+  ],
+  "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+  "setup_instructions": "This server stores memories in a local database. No additional configuration required.",
+  "benefits": [
+    "Maintain context across sessions",
+    "Remember user preferences and project details",
+    "Build up knowledge over time",
+    "Provide more personalized assistance"
+  ]
+}

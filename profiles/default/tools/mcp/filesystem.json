@@ -1,0 +1,27 @@
+{
+  "server_id": "filesystem",
+  "description": "Enhanced filesystem operations including search, file manipulation, and directory management",
+  "command": "npx",
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-filesystem",
+    "/path/to/allowed/directory"
+  ],
+  "env": {},
+  "transport": "stdio",
+  "install_command": "npm install -g @modelcontextprotocol/server-filesystem",
+  "required_secrets": [],
+  "capabilities": [
+    "resources",
+    "tools"
+  ],
+  "tags": [
+    "filesystem",
+    "files",
+    "directories",
+    "search"
+  ],
+  "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+  "setup_instructions": "Replace '/path/to/allowed/directory' in args with the actual directory path you want to grant access to. This server provides read/write access to the specified directory tree.",
+  "security_note": "This server grants filesystem access. Only specify directories you trust the AI to access."
+}

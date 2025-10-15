@@ -29,6 +29,9 @@ agent-os/
         ├── agents/         # Subagent definitions (.md files with frontmatter)
         │   ├── specification/  # Spec workflow agents
         │   └── templates/      # Agent templates
+        ├── automations/    # CI/CD automation configurations
+        │   ├── github/     # GitHub Actions workflows
+        │   └── setup/      # Platform setup scripts and documentation
         ├── commands/       # Slash commands for Claude Code/Cursor
         │   ├── multi-agent/   # Multi-agent mode commands
         │   └── single-agent/  # Single-agent mode commands
@@ -40,6 +43,9 @@ agent-os/
         │   ├── backend/    # Backend-specific standards
         │   ├── frontend/   # Frontend-specific standards
         │   └── testing/    # Testing standards
+        ├── tools/          # MCP server configurations and tool integrations
+        │   ├── mcp/        # Pre-configured MCP server definitions
+        │   └── setup/      # Tool installation scripts
         └── workflows/      # Workflow instruction files
             └── specification/  # Spec creation workflows
 ```
@@ -60,6 +66,10 @@ agent-os/
 **Workflows**: Reusable instruction files (`.md`) that agents include via double-brace syntax like `{{workflows/specification/write-spec}}`.
 
 **Commands**: Slash commands (e.g., `/new-spec`, `/create-spec`, `/implement-spec`) that trigger multi-phase workflows.
+
+**Automations**: CI/CD workflow configurations (e.g., GitHub Actions) that enable Claude Code to work with your repository via `@claude` mentions.
+
+**Tools**: Pre-configured MCP (Model Context Protocol) server definitions that extend AI coding environments with external data sources and capabilities (GitHub, databases, web search, etc.).
 
 ## Installation Commands
 
@@ -310,6 +320,57 @@ The version is tracked in `config.yml` and affects:
 
 Check the CHANGELOG.md for version history and upgrade instructions.
 
+## MCP Tools Integration
+
+Agent OS includes pre-configured MCP (Model Context Protocol) server definitions that extend AI coding environments with powerful capabilities:
+
+### What are MCP Servers?
+
+MCP is an open standard that allows AI assistants to connect to external data sources and tools. Agent OS provides pre-configured servers for:
+
+- **github** - Repository integration, issue management, PR operations
+- **filesystem** - Enhanced file operations beyond standard tools
+- **brave-search** - Web search capabilities for current information
+- **sqlite** - Database querying and management
+- **memory** - Persistent context across sessions
+
+### Installing MCP Tools
+
+MCP servers are installed during project setup:
+
+```bash
+# Prompted during installation
+~/.agent-os/scripts/project-install.sh
+
+# Install with specific options
+~/.agent-os/scripts/project-install.sh --install-tools --tools-scope user
+
+# User scope: available in all projects (~/.claude.json or ~/.cursor/mcp.json)
+# Project scope: version controlled, shared with team (.mcp.json)
+```
+
+### Manual Installation
+
+Install MCP servers separately:
+
+```bash
+# Claude Code - user scope
+~/.agent-os/profiles/default/tools/setup/claude-code.sh --scope user
+
+# Cursor - project scope
+~/.agent-os/profiles/default/tools/setup/cursor.sh --scope project
+```
+
+### Configuration
+
+Each MCP server is defined as a JSON file in `profiles/default/tools/mcp/` with:
+- Command and arguments
+- Required environment variables (API keys, tokens)
+- Installation instructions
+- Capabilities and documentation links
+
+See `profiles/default/tools/README.md` for detailed documentation.
+
 ## Key Files Reference
 
 - `config.yml` - Configuration for multi/single agent mode, profile selection
@@ -318,6 +379,9 @@ Check the CHANGELOG.md for version history and upgrade instructions.
 - `profiles/default/roles/verifiers.yml` - Verification agent definitions
 - `profiles/default/standards/global/tech-stack.md` - Template for defining project tech stack
 - `profiles/default/workflows/specification/write-spec.md` - Workflow for creating specifications
+- `profiles/default/tools/mcp/` - Pre-configured MCP server definitions
+- `profiles/default/tools/setup/` - MCP installation scripts for Claude Code and Cursor
+- `profiles/default/automations/` - CI/CD automation configurations
 
 ## Documentation
 

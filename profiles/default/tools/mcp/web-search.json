@@ -1,0 +1,47 @@
+{
+  "server_id": "brave-search",
+  "description": "Web search capabilities using Brave Search API for current information and research",
+  "command": "npx",
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-brave-search"
+  ],
+  "env": {
+    "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+  },
+  "transport": "stdio",
+  "install_command": "npm install -g @modelcontextprotocol/server-brave-search",
+  "required_secrets": [
+    "BRAVE_API_KEY"
+  ],
+  "capabilities": [
+    "tools"
+  ],
+  "tags": [
+    "search",
+    "web",
+    "research",
+    "brave"
+  ],
+  "documentation_url": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+  "setup_instructions": "Get a free Brave Search API key at https://brave.com/search/api/",
+  "alternatives": {
+    "tavily": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-tavily"],
+      "env": {
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}"
+      },
+      "setup_url": "https://tavily.com/"
+    },
+    "google": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-google-search"],
+      "env": {
+        "GOOGLE_API_KEY": "${GOOGLE_API_KEY}",
+        "GOOGLE_CSE_ID": "${GOOGLE_CSE_ID}"
+      },
+      "setup_url": "https://developers.google.com/custom-search/v1/overview"
+    }
+  }
+}
