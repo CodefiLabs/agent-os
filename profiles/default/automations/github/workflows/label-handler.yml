@@ -1,0 +1,228 @@
+name: Agent OS Label Handler
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  handle:
+    # Only run if working-agent label is present AND at least one command or agent label exists
+    if: |
+      contains(github.event.issue.labels.*.name, 'working-agent') &&
+      (contains(toJSON(github.event.issue.labels.*.name), 'command:') || contains(toJSON(github.event.issue.labels.*.name), 'agent:'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gather Issue Context and Labels
+        id: context
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+
+          # Get full issue details
+          ISSUE_JSON=$(gh issue view $ISSUE_NUMBER --json title,body,labels,comments,author)
+
+          TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+          BODY=$(echo "$ISSUE_JSON" | jq -r '.body // ""')
+          AUTHOR=$(echo "$ISSUE_JSON" | jq -r '.author.login')
+
+          # Extract all labels
+          ALL_LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name')
+
+          # Filter command and agent labels
+          COMMAND_LABELS=$(echo "$ALL_LABELS" | grep '^command:' || echo "")
+          AGENT_LABELS=$(echo "$ALL_LABELS" | grep '^agent:' || echo "")
+
+          # Get all comments (limit to 10k chars to avoid exceeding GitHub limits)
+          COMMENTS=$(echo "$ISSUE_JSON" | jq -r '.comments[]? | "**\(.author.login)** (\(.createdAt)):\n\(.body)\n---"' | head -c 10000)
+
+          echo "Issue #$ISSUE_NUMBER: $TITLE"
+          echo "Command labels: $COMMAND_LABELS"
+          echo "Agent labels: $AGENT_LABELS"
+
+          # Store outputs
+          {
+            echo "issue_number=$ISSUE_NUMBER"
+            echo "title=$TITLE"
+            echo "author=$AUTHOR"
+            echo "command_labels<<EOF"
+            echo "$COMMAND_LABELS"
+            echo "EOF"
+            echo "agent_labels<<EOF"
+            echo "$AGENT_LABELS"
+            echo "EOF"
+            echo "body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+            echo "comments<<EOF"
+            echo "$COMMENTS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Determine Branch Prefix
+        id: branch
+        run: |
+          COMMAND_LABELS="${{ steps.context.outputs.command_labels }}"
+
+          # Get first command label if any
+          FIRST_COMMAND=$(echo "$COMMAND_LABELS" | head -1)
+
+          if [[ -n "$FIRST_COMMAND" ]]; then
+            # Extract command path: command:agent-os:new-spec → agent-os/new-spec
+            COMMAND_PATH=$(echo "$FIRST_COMMAND" | sed 's/^command://' | tr ':' '/')
+            BRANCH_PREFIX="${COMMAND_PATH}/"
+            echo "Using branch prefix: $BRANCH_PREFIX"
+          else
+            # Default to agent-os prefix
+            BRANCH_PREFIX="agent-os/"
+            echo "No command label found, using default prefix: $BRANCH_PREFIX"
+          fi
+
+          echo "branch_prefix=$BRANCH_PREFIX" >> $GITHUB_OUTPUT
+
+      - name: Build Combined Instructions
+        id: instructions
+        run: |
+          COMMAND_LABELS="${{ steps.context.outputs.command_labels }}"
+          AGENT_LABELS="${{ steps.context.outputs.agent_labels }}"
+
+          INSTRUCTIONS_FILE="/tmp/combined-instructions.md"
+          echo "# Combined Instructions for Issue #${{ steps.context.outputs.issue_number }}" > "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "## Issue Context" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "**Title:** ${{ steps.context.outputs.title }}" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "**Issue Body:**" >> "$INSTRUCTIONS_FILE"
+          echo "${{ steps.context.outputs.body }}" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "**Recent Comments:**" >> "$INSTRUCTIONS_FILE"
+          echo "${{ steps.context.outputs.comments }}" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "---" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+
+          # Process command labels
+          if [[ -n "$COMMAND_LABELS" ]]; then
+            echo "## Command Instructions" >> "$INSTRUCTIONS_FILE"
+            echo "" >> "$INSTRUCTIONS_FILE"
+
+            while IFS= read -r label; do
+              if [[ -n "$label" ]]; then
+                # Convert label to file path: command:agent-os:new-spec → .claude/commands/agent-os/new-spec.md
+                file_path=$(echo "$label" | sed 's/^command://' | tr ':' '/')
+                full_path=".claude/commands/${file_path}.md"
+
+                if [[ -f "$full_path" ]]; then
+                  echo "### Command: $label" >> "$INSTRUCTIONS_FILE"
+                  echo "" >> "$INSTRUCTIONS_FILE"
+                  echo "\`\`\`" >> "$INSTRUCTIONS_FILE"
+                  cat "$full_path" >> "$INSTRUCTIONS_FILE"
+                  echo "\`\`\`" >> "$INSTRUCTIONS_FILE"
+                  echo "" >> "$INSTRUCTIONS_FILE"
+                  echo "Found and included: $full_path"
+                else
+                  echo "⚠️ Warning: Command file not found: $full_path"
+                fi
+              fi
+            done <<< "$COMMAND_LABELS"
+          fi
+
+          # Process agent labels
+          if [[ -n "$AGENT_LABELS" ]]; then
+            echo "## Agent Instructions" >> "$INSTRUCTIONS_FILE"
+            echo "" >> "$INSTRUCTIONS_FILE"
+
+            while IFS= read -r label; do
+              if [[ -n "$label" ]]; then
+                # Convert label to file path: agent:agent-os:spec-writer → .claude/agents/agent-os/spec-writer.md
+                file_path=$(echo "$label" | sed 's/^agent://' | tr ':' '/')
+                full_path=".claude/agents/${file_path}.md"
+
+                if [[ -f "$full_path" ]]; then
+                  echo "### Agent: $label" >> "$INSTRUCTIONS_FILE"
+                  echo "" >> "$INSTRUCTIONS_FILE"
+                  echo "\`\`\`" >> "$INSTRUCTIONS_FILE"
+                  cat "$full_path" >> "$INSTRUCTIONS_FILE"
+                  echo "\`\`\`" >> "$INSTRUCTIONS_FILE"
+                  echo "" >> "$INSTRUCTIONS_FILE"
+                  echo "Found and included: $full_path"
+                else
+                  echo "⚠️ Warning: Agent file not found: $full_path"
+                fi
+              fi
+            done <<< "$AGENT_LABELS"
+          fi
+
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "---" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "## Your Task" >> "$INSTRUCTIONS_FILE"
+          echo "" >> "$INSTRUCTIONS_FILE"
+          echo "Follow the command and agent instructions above to complete the work described in this issue." >> "$INSTRUCTIONS_FILE"
+          echo "Create a pull request with your changes when complete." >> "$INSTRUCTIONS_FILE"
+
+          echo "instructions_file=$INSTRUCTIONS_FILE" >> $GITHUB_OUTPUT
+
+      - name: Execute with Claude Code
+        id: execute
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          branch_prefix: ${{ steps.branch.outputs.branch_prefix }}
+          prompt: |
+            You are working on GitHub issue #${{ steps.context.outputs.issue_number }}.
+
+            Please read the combined instructions file at: ${{ steps.instructions.outputs.instructions_file }}
+
+            This file contains:
+            1. The full issue context (title, body, comments)
+            2. Command instructions from the command labels applied to this issue
+            3. Agent instructions from the agent labels applied to this issue
+
+            Your task is to follow those instructions and implement the requested work.
+            Create a pull request with your changes when complete.
+        continue-on-error: true
+
+      - name: Update Issue Status
+        if: always()
+        run: |
+          ISSUE_NUMBER="${{ steps.context.outputs.issue_number }}"
+          AUTHOR="${{ steps.context.outputs.author }}"
+
+          # Remove working-agent label
+          gh issue edit $ISSUE_NUMBER --remove-label "working-agent" || true
+
+          # Check if execution succeeded
+          if [[ "${{ steps.execute.outcome }}" == "success" ]]; then
+            echo "Execution succeeded, adding review-agent label"
+            gh issue edit $ISSUE_NUMBER --add-label "review-agent"
+
+            # Add success comment
+            gh issue comment $ISSUE_NUMBER --body "✅ Agent OS has completed the work for this issue. A pull request should have been created. Please review.
+
+            cc @${AUTHOR}"
+          else
+            echo "Execution failed or had errors, adding errored-agent label"
+            gh issue edit $ISSUE_NUMBER --add-label "errored-agent"
+
+            # Add error comment
+            gh issue comment $ISSUE_NUMBER --body "❌ Agent OS encountered an error while processing this issue. Please review the workflow logs and try again.
+
+            cc @${AUTHOR}"
+          fi
+
+          # Assign back to original author
+          gh issue edit $ISSUE_NUMBER --add-assignee "$AUTHOR" || echo "Could not assign to $AUTHOR"
+        env:
+          GH_TOKEN: ${{ github.token }}

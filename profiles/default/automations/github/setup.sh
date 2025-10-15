@@ -197,12 +197,44 @@ echo ""
 if [[ "$AUTH_CONFIGURED" == "true" ]]; then
     echo "  ✓ Authentication configured"
     echo "  1. Commit and push .github/workflows/ files"
-    echo "  2. Test by mentioning @claude in an issue or PR"
-    echo "  3. Check Actions tab to see workflow runs"
+    echo "  2. Create GitHub labels for Agent OS"
+    echo "  3. Test by mentioning @claude in an issue or PR"
+    echo "  4. Check Actions tab to see workflow runs"
 else
     echo "  1. Set up authentication (see options above)"
     echo "  2. Commit and push .github/workflows/ files"
-    echo "  3. Test by mentioning @claude in an issue or PR"
+    echo "  3. Create GitHub labels for Agent OS"
+    echo "  4. Test by mentioning @claude in an issue or PR"
+fi
+
+echo ""
+
+# Optionally run label creation script
+if [[ -f "$SCRIPT_DIR/setup/create-labels.sh" ]]; then
+    echo ""
+    echo "================================================"
+    echo "  GitHub Labels Setup"
+    echo "================================================"
+    echo ""
+    echo "Agent OS workflows use GitHub labels to trigger automation."
+    echo "Would you like to create labels now?"
+    echo ""
+
+    if [[ -t 0 ]]; then
+        read -p "Create GitHub labels? (y/N): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo ""
+            bash "$SCRIPT_DIR/setup/create-labels.sh"
+        else
+            echo ""
+            echo "Skipped label creation. You can run it later:"
+            echo "  bash \"$SCRIPT_DIR/setup/create-labels.sh\""
+        fi
+    else
+        echo "Non-interactive context - skipping label creation"
+        echo "Run manually: bash \"$SCRIPT_DIR/setup/create-labels.sh\""
+    fi
 fi
 
 echo ""

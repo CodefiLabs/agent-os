@@ -1,0 +1,137 @@
+name: Agent OS Orchestrator
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+  issue_comment:
+    types: [created]
+
+jobs:
+  orchestrate:
+    # Only run if working-agent label is NOT present
+    if: |
+      !contains(github.event.issue.labels.*.name, 'working-agent') &&
+      github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Gather Issue Context
+        id: context
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+
+          # Get full issue details
+          ISSUE_JSON=$(gh issue view $ISSUE_NUMBER --json title,body,labels,comments)
+
+          TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+          BODY=$(echo "$ISSUE_JSON" | jq -r '.body // ""')
+          CURRENT_LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name' | tr '\n' ',' | sed 's/,$//')
+
+          # Get all comments
+          COMMENTS=$(echo "$ISSUE_JSON" | jq -r '.comments[]? | "**\(.author.login)** (\(.createdAt)):\n\(.body)\n---"' | head -c 10000)
+
+          # Store in environment for multi-line content
+          {
+            echo "title=$TITLE"
+            echo "current_labels=$CURRENT_LABELS"
+            echo "body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+            echo "comments<<EOF"
+            echo "$COMMENTS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Analyze Issue and Determine Labels
+        id: analyze
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --systemPrompt "You are the Agent OS orchestrator. Your job is to analyze GitHub issues and determine which command and agent labels should be applied.
+
+            Available commands are in .claude/commands/ directory structure. Available agents are in .claude/agents/ directory structure.
+
+            Label format:
+            - Commands: command:{path} where {path} is the relative path from .claude/commands/ with / replaced by : and .md removed
+            - Agents: agent:{path} where {path} is the relative path from .claude/agents/ with / replaced by : and .md removed
+
+            Examples:
+            - .claude/commands/agent-os/new-spec.md → command:agent-os:new-spec
+            - .claude/agents/agent-os/spec-writer.md → agent:agent-os:spec-writer
+
+            OUTPUT FORMAT (critical):
+            Return ONLY a JSON object with this exact structure:
+            {
+              \"labels\": [\"command:agent-os:new-spec\", \"agent:agent-os:spec-writer\"]
+            }
+
+            If no labels should be added, return: {\"labels\": []}
+
+            Do NOT include any other text, explanation, or markdown formatting."
+          prompt: |
+            Analyze this GitHub issue and determine which Agent OS command and agent labels should be applied.
+
+            ISSUE #${{ github.event.issue.number }}
+            Title: ${{ steps.context.outputs.title }}
+            Current Labels: ${{ steps.context.outputs.current_labels }}
+
+            Issue Body:
+            ${{ steps.context.outputs.body }}
+
+            Recent Comments:
+            ${{ steps.context.outputs.comments }}
+
+            First, explore the .claude/commands/ and .claude/agents/ directories to understand what's available.
+            Then determine which labels to add based on the issue content.
+
+            Return your answer as a JSON object with a "labels" array.
+
+      - name: Extract Labels from Response
+        id: extract
+        run: |
+          # Get Claude's output from the previous step
+          CLAUDE_OUTPUT="${{ steps.analyze.outputs.result }}"
+
+          # Try to extract JSON from the output
+          LABELS_JSON=$(echo "$CLAUDE_OUTPUT" | grep -o '{.*}' | head -1)
+
+          if [[ -z "$LABELS_JSON" ]]; then
+            echo "No valid JSON found in Claude's response"
+            echo "labels_to_add=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Extract labels array and convert to space-separated string
+          LABELS=$(echo "$LABELS_JSON" | jq -r '.labels[]?' | tr '\n' ' ')
+
+          echo "Labels to add: $LABELS"
+          echo "labels_to_add=$LABELS" >> $GITHUB_OUTPUT
+
+      - name: Add Labels
+        if: steps.extract.outputs.labels_to_add != ''
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          LABELS="${{ steps.extract.outputs.labels_to_add }}"
+
+          # Add each command/agent label first
+          for label in $LABELS; do
+            echo "Adding label: $label"
+            gh issue edit $ISSUE_NUMBER --add-label "$label" || echo "Warning: Could not add label $label"
+          done
+
+          # Finally add working-agent label to trigger the handler
+          echo "Adding working-agent label"
+          gh issue edit $ISSUE_NUMBER --add-label "working-agent"
+        env:
+          GH_TOKEN: ${{ github.token }}
