@@ -73,7 +73,24 @@ agent-os/
 
 ## Installation Commands
 
-### Base Installation
+### Quick Installation (NPX)
+
+The fastest way to install Agent OS:
+
+```bash
+# Install from npm (when published)
+npx @agent-os/cli
+
+# Install from GitHub
+npx github:CodefiLabs/agent-os
+
+# Install from your fork
+npx github:your-username/agent-os
+```
+
+See [NPX Installation Guide](docs/npx-installation.md) for advanced options.
+
+### Base Installation (Alternative)
 Installs Agent OS to a location on your system (typically `~/.agent-os/`) where standards can be customized:
 
 ```bash

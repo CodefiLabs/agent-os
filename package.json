@@ -1,0 +1,39 @@
+{
+  "name": "@agent-os/cli",
+  "version": "2.0.4",
+  "description": "Spec-driven agentic development framework CLI",
+  "main": "scripts/agent-os",
+  "bin": {
+    "agent-os": "./scripts/agent-os",
+    "agent-os-install": "./scripts/npx-install.sh"
+  },
+  "scripts": {
+    "postinstall": "bash scripts/npx-install.sh"
+  },
+  "keywords": [
+    "agent-os",
+    "ai",
+    "development",
+    "cli",
+    "automation",
+    "claude-code",
+    "cursor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CodefiLabs/agent-os.git"
+  },
+  "bugs": {
+    "url": "https://github.com/CodefiLabs/agent-os/issues"
+  },
+  "homepage": "https://buildermethods.com/agent-os",
+  "author": "Builder Methods",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ]
+}
