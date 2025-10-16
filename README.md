@@ -16,6 +16,16 @@ Use it with:
 
 ---
 
+### Quick Install
+
+```bash
+npx github:CodefiLabs/agent-os
+```
+
+This will run the base installation script to set up Agent OS in your environment.
+
+---
+
 ### Documentation & Installation
 
 Docs, installation, usage, & best practices 👉 [It's all here](https://buildermethods.com/agent-os)
