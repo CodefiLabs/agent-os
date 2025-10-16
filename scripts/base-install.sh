@@ -6,7 +6,7 @@
 set -e
 
 # Repository configuration
-REPO_URL="https://github.com/buildermethods/agent-os"
+REPO_URL="https://github.com/CodefiLabs/agent-os"
 
 # Installation paths
 BASE_DIR="$HOME/agent-os"
