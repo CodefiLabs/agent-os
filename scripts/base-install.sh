@@ -474,6 +474,14 @@ overwrite_config() {
     print_status "Updating config.yml..."
     if download_file "config.yml" "$BASE_DIR/config.yml"; then
         print_verbose "  Downloaded: config.yml"
+
+        # Add repo_url if not present
+        if ! grep -q "^repo_url:" "$BASE_DIR/config.yml"; then
+            sed -i "2i repo_url: $REPO_URL" "$BASE_DIR/config.yml"
+        else
+            # Update existing repo_url
+            sed -i "s|^repo_url:.*|repo_url: $REPO_URL|" "$BASE_DIR/config.yml"
+        fi
     fi
 
     echo ""
@@ -501,6 +509,16 @@ perform_fresh_installation() {
     if ! install_all_files; then
         print_error "Installation failed"
         exit 1
+    fi
+
+    # Add repo_url to config.yml if not already present
+    if [[ -f "$BASE_DIR/config.yml" ]]; then
+        if ! grep -q "^repo_url:" "$BASE_DIR/config.yml"; then
+            sed -i "2i repo_url: $REPO_URL" "$BASE_DIR/config.yml"
+        else
+            # Update existing repo_url
+            sed -i "s|^repo_url:.*|repo_url: $REPO_URL|" "$BASE_DIR/config.yml"
+        fi
     fi
 
     echo ""

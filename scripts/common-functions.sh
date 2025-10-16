@@ -1093,8 +1093,17 @@ detect_repo_url() {
         return
     fi
 
-    # Try to detect from git remote in base directory
+    # Try to read from config.yml first (for NPX installations)
     local base_dir=${BASE_DIR:-"$HOME/.agent-os"}
+    if [[ -f "$base_dir/config.yml" ]]; then
+        local config_repo_url=$(get_yaml_value "$base_dir/config.yml" "repo_url" "")
+        if [[ -n "$config_repo_url" ]]; then
+            echo "$config_repo_url"
+            return
+        fi
+    fi
+
+    # Try to detect from git remote in base directory
     if [[ -d "$base_dir/.git" ]]; then
         local git_url=$(cd "$base_dir" && git remote get-url origin 2>/dev/null || echo "")
         if [[ -n "$git_url" ]]; then
