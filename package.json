@@ -1,0 +1,14 @@
+{
+  "name": "@codelabs/agent-os",
+  "version": "1.0.0",
+  "description": "Agent OS - Installation and configuration system",
+  "bin": {
+    "agent-os": "./install.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CodefiLabs/agent-os.git"
+  },
+  "keywords": ["agent", "os", "installation"],
+  "license": "SEE LICENSE IN LICENSE"
+}
