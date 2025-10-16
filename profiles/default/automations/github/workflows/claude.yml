@@ -13,15 +13,16 @@ on:
 jobs:
   claude:
     if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      github.event.sender.type != 'Bot' &&
+      ((github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))))
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
     steps:
       - name: Checkout repository
@@ -29,10 +30,133 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Run Claude Code
-        id: claude
+      - name: Gather Issue Context
+        id: context
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+
+          # Get full issue details
+          ISSUE_JSON=$(gh issue view $ISSUE_NUMBER --json title,body,labels,comments)
+
+          TITLE=$(echo "$ISSUE_JSON" | jq -r '.title')
+          BODY=$(echo "$ISSUE_JSON" | jq -r '.body // ""')
+          CURRENT_LABELS=$(echo "$ISSUE_JSON" | jq -r '.labels[].name' | tr '\n' ',' | sed 's/,$//')
+
+          # Get all comments
+          COMMENTS=$(echo "$ISSUE_JSON" | jq -r '.comments[]? | "**\(.author.login)** (\(.createdAt)):\n\(.body)\n---"' | head -c 10000)
+
+          # Store in environment for multi-line content
+          {
+            echo "title=$TITLE"
+            echo "current_labels=$CURRENT_LABELS"
+            echo "body<<EOF"
+            echo "$BODY"
+            echo "EOF"
+            echo "comments<<EOF"
+            echo "$COMMENTS"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Analyze Issue and Determine Labels
+        id: analyze
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --systemPrompt "You have access to custom commands in .claude/commands/ and custom agents in .claude/agents/. When users reference these patterns (like 'implement-spec' or 'new-spec'), read and follow the instructions defined in those files. The repository uses Agent OS, which provides structured workflows for software development."
+            --systemPrompt "You are Claude, an AI assistant with access to custom commands and agents.
+
+            Your job is to:
+            1. Read the issue/comment content
+            2. Determine the best way to handle this request
+
+            Available commands are in .claude/commands/ directory.
+            Available agents are in .claude/agents/ directory.
+
+            Label format:
+            - Commands: command:{path} where {path} is the relative path from .claude/commands/ with / replaced by : and .md removed
+            - Agents: agent:{path} where {path} is the relative path from .claude/agents/ with / replaced by : and .md removed
+
+            Examples:
+            - .claude/commands/my-feature/new-spec.md → command:my-feature:new-spec
+            - .claude/agents/backend/api-engineer.md → agent:backend:api-engineer
+
+            OUTPUT FORMAT OPTIONS:
+
+            Option 1 - Delegate to specialized command/agent workflow:
+            Return ONLY a JSON object:
+            {
+              \"labels\": [\"command:my-feature:new-spec\", \"agent:backend:api-engineer\"]
+            }
+
+            Option 2 - Respond directly with information/guidance:
+            Provide a helpful text response. Do NOT output any JSON.
+
+            Option 3 - Perform development work in a new branch:
+            Use /branch-plan to create a branch and implement the changes directly.
+            This is appropriate for straightforward development tasks like bug fixes, feature implementations, or code improvements."
+          prompt: |
+            Analyze this GitHub issue and determine how to handle it.
+
+            ISSUE #${{ github.event.issue.number }}
+            Title: ${{ steps.context.outputs.title }}
+            Current Labels: ${{ steps.context.outputs.current_labels }}
+
+            Issue Body:
+            ${{ steps.context.outputs.body }}
+
+            Recent Comments:
+            ${{ steps.context.outputs.comments }}
+
+            First, explore the .claude/commands/ and .claude/agents/ directories to understand what specialized workflows are available.
+
+            Then decide the best approach:
+            - If specialized command/agent workflow exists for this: return JSON with labels
+            - If this is a question or needs guidance: provide a helpful response
+            - If this is a development task (bug fix, feature, improvement): use /branch-plan to implement it
+
+      - name: Check Response Type
+        id: check
+        run: |
+          CLAUDE_OUTPUT="${{ steps.analyze.outputs.result }}"
+
+          # Check if response contains JSON labels
+          LABELS_JSON=$(echo "$CLAUDE_OUTPUT" | grep -o '{[^}]*"labels"[^}]*}' | head -1)
+
+          if [[ -n "$LABELS_JSON" ]]; then
+            echo "response_type=labels" >> $GITHUB_OUTPUT
+            echo "labels_json=$LABELS_JSON" >> $GITHUB_OUTPUT
+          else
+            echo "response_type=continue" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Apply Labels and Trigger Handler
+        if: steps.check.outputs.response_type == 'labels'
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          LABELS_JSON="${{ steps.check.outputs.labels_json }}"
+
+          # Extract labels array and convert to space-separated string
+          LABELS=$(echo "$LABELS_JSON" | jq -r '.labels[]?' | tr '\n' ' ')
+
+          if [[ -n "$LABELS" ]]; then
+            # Add each command/agent label
+            for label in $LABELS; do
+              echo "Adding label: $label"
+              gh issue edit $ISSUE_NUMBER --add-label "$label" || echo "Warning: Could not add label $label"
+            done
+
+            # Add working-agent label to trigger the label-handler workflow
+            echo "Adding working-agent label to trigger handler"
+            gh issue edit $ISSUE_NUMBER --add-label "working-agent"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Run Claude for Direct Response or Development
+        if: steps.check.outputs.response_type == 'continue'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}

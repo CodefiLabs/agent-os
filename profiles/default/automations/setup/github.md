@@ -80,27 +80,25 @@ The script will:
 
 ## Workflows Included
 
-Four workflows are installed:
+Three workflows are installed:
 
 ### 1. Claude Code (`claude.yml`)
 - **Triggers**: @claude mentions in issues, PRs, comments, reviews
-- **Purpose**: Respond to natural language requests, with awareness of .claude/ patterns
-- **Permissions**: Read-only (contents, pull-requests, issues, id-token)
-- **System Instructions**: Configured to look in .claude/commands/ and .claude/agents/
+- **Purpose**: Intelligent routing - analyzes requests and either responds directly OR applies appropriate `command:*` and `agent:*` labels to trigger specialized handlers
+- **Permissions**: Read contents, write pull-requests, write issues, id-token
+- **Behavior**:
+  - Analyzes issue/comment content
+  - If specialized command/agent should handle: applies labels and `working-agent` to trigger label-handler
+  - If Claude should respond directly: posts response as comment
+  - Ignores existing labels, only triggered by @claude mentions
 
 ### 2. PR Review (`claude-review.yml`)
 - **Triggers**: PR opened, synchronized, reopened, ready for review
 - **Purpose**: Automated PR reviews with inline comments
 - **Permissions**: Read contents, write pull-requests, id-token
 
-### 3. Agent OS Orchestrator (`orchestrator.yml`)
-- **Triggers**: Issue labeled/unlabeled, issue comments created
-- **Purpose**: Analyzes issues and automatically applies appropriate `command:*` and `agent:*` labels
-- **Permissions**: Read contents, write issues, id-token
-- **Behavior**: Only runs if `working-agent` label is NOT present; adds labels then adds `working-agent` to trigger handler
-
-### 4. Agent OS Label Handler (`label-handler.yml`)
-- **Triggers**: Issue labeled
+### 3. Agent OS Label Handler (`label-handler.yml`)
+- **Triggers**: Issue labeled with `working-agent`
 - **Purpose**: Executes work when `command:*` or `agent:*` labels are applied along with `working-agent` label
 - **Permissions**: Write contents, write issues, write pull-requests, id-token
 - **Behavior**: Reads command/agent files from `.claude/`, executes work, removes `working-agent`, adds `review-agent` or `errored-agent`
@@ -118,15 +116,17 @@ In issue comments, PR comments, or PR reviews (natural language):
 @claude analyze this function and suggest improvements
 ```
 
-**Note**: Claude will recognize patterns from `.claude/commands/` if they're version controlled and you use similar language. The system prompt instructs Claude to check these directories.
+**Note**: Claude automatically analyzes the issue/comment and determines whether to respond directly or delegate to specialized handlers. It explores `.claude/commands/` and `.claude/agents/` directories to make this decision.
 
 ### Method 2: Agent OS Label-Based Automation
 
-**Automatic (via Orchestrator):**
+**Automatic (via @claude mention):**
 1. Create an issue describing your feature or bug
-2. Add a comment or label change to trigger the orchestrator
-3. The orchestrator analyzes your issue and applies appropriate labels
-4. The label handler automatically executes the work
+2. Mention @claude in a comment or the issue body
+3. Claude analyzes the request and either:
+   - Responds directly if it's a simple query
+   - Applies appropriate `command:*` and `agent:*` labels + `working-agent` to trigger the label handler
+4. If labels are applied, the label handler automatically executes the work
 
 **Manual:**
 1. Create an issue
@@ -139,7 +139,7 @@ In issue comments, PR comments, or PR reviews (natural language):
 - Management: `working-agent`, `review-agent`, `errored-agent`
 
 **Workflow:**
-1. Issue created/labeled → Orchestrator adds command/agent labels + `working-agent`
+1. @claude mention → Claude analyzes and adds command/agent labels + `working-agent` (if specialized handling needed)
 2. `working-agent` present → Label handler executes work
 3. On completion → Removes `working-agent`, adds `review-agent` or `errored-agent`
 4. Issue assigned back to original author for review
@@ -158,7 +158,6 @@ Reviews trigger automatically when PRs are opened or updated. Claude will:
    ```bash
    ls .github/workflows/claude.yml
    ls .github/workflows/claude-review.yml
-   ls .github/workflows/orchestrator.yml
    ls .github/workflows/label-handler.yml
    ```
 
@@ -186,7 +185,7 @@ Reviews trigger automatically when PRs are opened or updated. Claude will:
 
    **Test label automation:**
    - Create an issue describing a feature (e.g., "Add user authentication")
-   - Add a comment or change a label to trigger orchestrator
+   - Comment with `@claude` to trigger analysis
    - Check that `command:*` and `agent:*` labels are added
    - Verify `working-agent` label is added last
    - Check that label-handler workflow executes
@@ -200,7 +199,6 @@ Reviews trigger automatically when PRs are opened or updated. Claude will:
 ```bash
 # View recent workflow runs
 gh run list --workflow=claude.yml
-gh run list --workflow=orchestrator.yml
 gh run list --workflow=label-handler.yml
 
 # Check for errors
@@ -213,7 +211,6 @@ gh run view [run-id]
 - Workflow permissions insufficient
 - Branch protection rules blocking workflow
 - Labels not created (run `create-labels.sh`)
-- `working-agent` label already present (orchestrator skips)
 - Missing required labels (label-handler needs `working-agent` + command/agent labels)
 
 ### Authentication errors
@@ -266,10 +263,10 @@ gh run list --workflow=claude.yml --status=failure
 
 ### Agent OS Label Automation Issues
 
-**Orchestrator not adding labels:**
-- Check that `working-agent` label is NOT already present
-- Verify issue has sufficient content for Claude to analyze
-- Check orchestrator workflow logs for errors
+**Claude not adding labels:**
+- Verify @claude mention is detected in issue/comment
+- Check that issue has sufficient content for Claude to analyze
+- Review claude.yml workflow logs for errors
 - Ensure `.claude/commands/` and `.claude/agents/` directories are version controlled
 
 **Label handler not executing:**
