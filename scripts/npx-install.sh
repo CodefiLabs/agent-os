@@ -66,9 +66,37 @@ install_from_npm() {
     local source="${1:-npm package}"
     print_status "Installing from $source..."
 
-    # The package is already downloaded by npx
-    # Copy everything to ~/.agent-os
-    local package_dir="$(cd "$(dirname "$0")/.." && pwd)"
+    # Find the actual package directory by looking for critical files
+    # Start from the script's directory and search upward
+    local script_dir="$(cd "$(dirname "$0")" && pwd)"
+    local package_dir=""
+
+    # Search for the directory containing all the required files
+    local search_dir="$script_dir/.."
+    local max_depth=5
+    local depth=0
+
+    while [[ $depth -lt $max_depth ]]; do
+        search_dir="$(cd "$search_dir" 2>/dev/null && pwd)" || break
+
+        # Check if this directory has the expected structure
+        if [[ -f "$search_dir/config.yml" ]] && \
+           [[ -d "$search_dir/scripts" ]] && \
+           [[ -d "$search_dir/profiles" ]]; then
+            package_dir="$search_dir"
+            break
+        fi
+
+        search_dir="$search_dir/.."
+        ((depth++))
+    done
+
+    # Fallback: use script_dir parent if nothing found
+    if [[ -z "$package_dir" ]]; then
+        package_dir="$(cd "$script_dir/.." && pwd)"
+    fi
+
+    print_status "Source: $package_dir"
 
     if [[ -d "$BASE_DIR" ]]; then
         if [[ -t 0 ]]; then
