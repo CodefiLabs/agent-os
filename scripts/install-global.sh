@@ -64,6 +64,9 @@ check_base_installation() {
 create_symlink() {
     print_status "Installing agent-os CLI to $INSTALL_DIR..."
 
+    # Ensure source CLI is executable
+    chmod +x "$CLI_SOURCE"
+
     # Remove existing symlink or file
     if [[ -L "$INSTALL_PATH" ]] || [[ -f "$INSTALL_PATH" ]]; then
         rm -f "$INSTALL_PATH"

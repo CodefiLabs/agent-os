@@ -299,6 +299,8 @@ install_all_files() {
     # Make scripts executable
     if [[ -d "$BASE_DIR/scripts" ]]; then
         chmod +x "$BASE_DIR/scripts/"*.sh 2>/dev/null || true
+        # Also make agent-os CLI executable
+        chmod +x "$BASE_DIR/scripts/agent-os" 2>/dev/null || true
     fi
 
     return 0
