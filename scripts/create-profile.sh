@@ -9,7 +9,7 @@ set -e  # Exit on error
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BASE_DIR="$HOME/agent-os"
+BASE_DIR="$HOME/.agent-os"
 PROFILES_DIR="$BASE_DIR/profiles"
 
 # Source common functions
@@ -382,8 +382,8 @@ main() {
     echo ""
     print_status "Next steps:"
     echo "  1. Customize standards, workflows, and configurations in your profile"
-    echo "  2. Use ~/agent-os/scripts/create-role.sh to add agent roles to this profile"
-    echo "  3. Install Agent OS in a project using this profile with: ~/agent-os/scripts/project-install.sh --profile $PROFILE_NAME"
+    echo "  2. Use ~/.agent-os/scripts/create-role.sh to add agent roles to this profile"
+    echo "  3. Install Agent OS in a project using this profile with: ~/.agent-os/scripts/project-install.sh --profile $PROFILE_NAME"
     echo ""
     echo -e "${GREEN}Visit the docs on customizing your profile: https://buildermethods.com/agent-os/profiles${NC}"
     echo ""

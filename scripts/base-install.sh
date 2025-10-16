@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Agent OS Base Installation Script
-# Installs Agent OS from GitHub repository to ~/agent-os
+# Installs Agent OS from GitHub repository to ~/.agent-os
 
 set -e
 
@@ -9,7 +9,7 @@ set -e
 REPO_URL="https://github.com/CodefiLabs/agent-os"
 
 # Installation paths
-BASE_DIR="$HOME/agent-os"
+BASE_DIR="$HOME/.agent-os"
 TEMP_DIR=$(mktemp -d)
 COMMON_FUNCTIONS_TEMP="$TEMP_DIR/common-functions.sh"
 
@@ -289,7 +289,7 @@ install_all_files() {
 
     if [[ "$DRY_RUN" != "true" ]]; then
         if [[ $download_status -eq 0 && $file_count -gt 0 ]]; then
-            echo "✓ Installed $file_count files to ~/agent-os"
+            echo "✓ Installed $file_count files to ~/.agent-os"
         else
             print_error "No files were downloaded"
             return 1
@@ -340,7 +340,7 @@ prompt_overwrite_choice() {
     echo "4) Overwrite only the base config.yml"
     echo "5) Cancel installation"
     echo ""
-    echo "If you choose to update and overwrite, your previous base installation will be saved in ~/agent-os.backup."
+    echo "If you choose to update and overwrite, your previous base installation will be saved in ~/.agent-os.backup."
     echo ""
 
     read -r -p "Enter your choice (1-5): " choice < /dev/tty
@@ -385,7 +385,7 @@ overwrite_all() {
         rm -rf "$BASE_DIR.backup"
     fi
     mv "$BASE_DIR" "$BASE_DIR.backup"
-    echo "✓ Backed up existing installation to ~/agent-os.backup"
+    echo "✓ Backed up existing installation to ~/.agent-os.backup"
 
     # Perform fresh installation
     perform_fresh_installation
@@ -487,12 +487,12 @@ perform_fresh_installation() {
     echo ""
     print_status "Configuration:"
     echo -e "  Repository: ${YELLOW}${REPO_URL}${NC}"
-    echo -e "  Target: ${YELLOW}~/agent-os${NC}"
+    echo -e "  Target: ${YELLOW}~/.agent-os${NC}"
     echo ""
 
     # Create base directory
     ensure_dir "$BASE_DIR"
-    echo "✓ Created base directory: ~/agent-os"
+    echo "✓ Created base directory: ~/.agent-os"
     echo ""
 
     # Install all files from repository
@@ -506,13 +506,13 @@ perform_fresh_installation() {
     echo ""
     echo -e "${GREEN}Next steps:${NC}"
     echo ""
-    echo -e "${GREEN}1) Customize your profile's standards in ~/agent-os/profiles/default/standards${NC}"
+    echo -e "${GREEN}1) Customize your profile's standards in ~/.agent-os/profiles/default/standards${NC}"
     echo ""
     echo -e "${GREEN}2) Navigate to a project directory${NC}"
     echo -e "   ${YELLOW}cd path/to/project-directory${NC}"
     echo ""
     echo -e "${GREEN}3) Install Agent OS in your project by running:${NC}"
-    echo -e "   ${YELLOW}~/agent-os/scripts/project-install.sh${NC}"
+    echo -e "   ${YELLOW}~/.agent-os/scripts/project-install.sh${NC}"
     echo ""
     echo -e "${GREEN}Visit the docs for guides on how to use Agent OS: https://buildermethods.com/agent-os${NC}"
     echo ""

@@ -29,3 +29,11 @@ disable=SC2162
 # SC1091 - Not following source
 # Scripts source other files that are in the same directory
 disable=SC1091
+
+# SC2207 - Prefer mapfile or read -a to split command output
+# Array assignment from command output is used consistently throughout
+disable=SC2207
+
+# SC2086 - Double quote to prevent globbing and word splitting
+# Intentional use of unquoted variables in controlled contexts
+disable=SC2086

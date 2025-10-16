@@ -9,7 +9,7 @@ set -e  # Exit on error
 
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-BASE_DIR="$HOME/agent-os"
+BASE_DIR="$HOME/.agent-os"
 PROFILES_DIR="$BASE_DIR/profiles"
 
 # Source common functions
@@ -686,7 +686,7 @@ main() {
     print_status "Location: $PROFILES_DIR/$SELECTED_PROFILE/roles/${file_type}.yml"
     echo ""
     echo "To apply this role to your project, run:"
-    echo -e "${BLUE}  ~/agent-os/scripts/project-update.sh${NC}"
+    echo -e "${BLUE}  ~/.agent-os/scripts/project-update.sh${NC}"
     echo ""
     echo -e "${GREEN}════════════════════════════════════════════${NC}"
     echo ""

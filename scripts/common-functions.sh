@@ -860,7 +860,7 @@ process_workflows() {
             rm -f "$temp_content" "$temp_replacement"
         else
             # Instead of printing warning to stderr, insert it into the content
-            local warning_msg="WARNING: This workflow file was not found in your Agent OS base installation at ~/agent-os/profiles/$profile/workflows/${workflow_path}.md"
+            local warning_msg="WARNING: This workflow file was not found in your Agent OS base installation at ~/.agent-os/profiles/$profile/workflows/${workflow_path}.md"
             local temp_warning=$(mktemp)
             local temp_content=$(mktemp)
             echo "$content" > "$temp_content"
@@ -1094,7 +1094,7 @@ detect_repo_url() {
     fi
 
     # Try to detect from git remote in base directory
-    local base_dir=${BASE_DIR:-"$HOME/agent-os"}
+    local base_dir=${BASE_DIR:-"$HOME/.agent-os"}
     if [[ -d "$base_dir/.git" ]]; then
         local git_url=$(cd "$base_dir" && git remote get-url origin 2>/dev/null || echo "")
         if [[ -n "$git_url" ]]; then
@@ -1135,7 +1135,7 @@ get_latest_version() {
 # Check for base installation updates
 # Returns: 0 if update available, 1 if up to date or check failed
 check_for_base_updates() {
-    local base_dir=${BASE_DIR:-"$HOME/agent-os"}
+    local base_dir=${BASE_DIR:-"$HOME/.agent-os"}
     local skip_prompt=${1:-false}
 
     # Only check if base installation exists
@@ -1253,7 +1253,7 @@ get_project_config() {
 # Validate base installation exists
 validate_base_installation() {
     if [[ ! -d "$BASE_DIR" ]]; then
-        print_error "Agent OS base installation not found at ~/agent-os/"
+        print_error "Agent OS base installation not found at ~/.agent-os/"
         echo ""
         print_status "Please run the base installation first:"
         echo "  curl -sSL https://raw.githubusercontent.com/buildermethods/agent-os/main/scripts/base-install.sh | bash"
@@ -1283,7 +1283,7 @@ check_not_base_installation() {
             echo ""
             echo "And then run:"
             echo ""
-            echo "  ~/agent-os/scripts/project-install.sh"
+            echo "  ~/.agent-os/scripts/project-install.sh"
             echo ""
             exit 1
         fi
