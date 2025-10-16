@@ -67,33 +67,49 @@ install_from_npm() {
     print_status "Installing from $source..."
 
     # Find the actual package directory by looking for critical files
-    # Start from the script's directory and search upward
+    # Start from the script's directory
     local script_dir="$(cd "$(dirname "$0")" && pwd)"
     local package_dir=""
 
-    # Search for the directory containing all the required files
-    local search_dir="$script_dir/.."
-    local max_depth=5
-    local depth=0
+    # First, check if the parent of scripts/ has everything we need
+    local potential_root="$(dirname "$script_dir")"
 
-    while [[ $depth -lt $max_depth ]]; do
-        search_dir="$(cd "$search_dir" 2>/dev/null && pwd)" || break
+    if [[ -f "$potential_root/config.yml" ]] && \
+       [[ -d "$potential_root/profiles" ]] && \
+       [[ -f "$script_dir/install-global.sh" ]]; then
+        # Perfect - we found it
+        package_dir="$potential_root"
+    else
+        # Search upward for the repository root
+        local search_dir="$potential_root"
+        local max_depth=5
+        local depth=0
 
-        # Check if this directory has the expected structure
-        if [[ -f "$search_dir/config.yml" ]] && \
-           [[ -d "$search_dir/scripts" ]] && \
-           [[ -d "$search_dir/profiles" ]]; then
-            package_dir="$search_dir"
-            break
-        fi
+        while [[ $depth -lt $max_depth && "$search_dir" != "/" ]]; do
+            if [[ -f "$search_dir/config.yml" ]] && \
+               [[ -d "$search_dir/scripts" ]] && \
+               [[ -d "$search_dir/profiles" ]] && \
+               [[ -f "$search_dir/scripts/install-global.sh" ]]; then
+                package_dir="$search_dir"
+                break
+            fi
 
-        search_dir="$search_dir/.."
-        ((depth++))
-    done
+            search_dir="$(dirname "$search_dir")"
+            ((depth++))
+        done
+    fi
 
-    # Fallback: use script_dir parent if nothing found
-    if [[ -z "$package_dir" ]]; then
-        package_dir="$(cd "$script_dir/.." && pwd)"
+    # Final check - if still not found, exit with error
+    if [[ -z "$package_dir" ]] || [[ ! -f "$package_dir/scripts/install-global.sh" ]]; then
+        print_error "Could not locate Agent OS repository files"
+        print_status "Script location: $script_dir"
+        print_status "Searched from: $potential_root"
+
+        # Show what we can see
+        print_status "Contents of script directory:"
+        ls -la "$script_dir" 2>/dev/null | head -10
+
+        exit 1
     fi
 
     print_status "Source: $package_dir"
