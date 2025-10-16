@@ -73,8 +73,10 @@ install_from_npm() {
     if [[ -d "$BASE_DIR" ]]; then
         if [[ -t 0 ]]; then
             print_warning "Existing installation found at $BASE_DIR"
-            read -p "Overwrite? (y/N): " -n 1 -r
+            read -p "Overwrite? (y/N): " -r
             echo
+            # Default to "n" if empty
+            REPLY=${REPLY:-n}
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                 print_status "Installation cancelled"
                 exit 0
@@ -85,29 +87,36 @@ install_from_npm() {
 
     mkdir -p "$BASE_DIR"
 
-    # Copy all files except node_modules and package files
+    # Copy all files - simple and reliable
     if command -v rsync &> /dev/null; then
-        rsync -a \
+        # Use rsync for reliable copying
+        rsync -a --quiet \
             --exclude='node_modules' \
             --exclude='package.json' \
             --exclude='package-lock.json' \
             --exclude='.git' \
             --exclude='.github' \
-            "$package_dir/" "$BASE_DIR/" 2>&1 | grep -v "^sending\|^sent\|^total" || true
+            "$package_dir/" "$BASE_DIR/"
     else
-        # Fallback to cp if rsync not available
-        # Copy regular files and directories
-        cp -R "$package_dir"/* "$BASE_DIR/" 2>/dev/null || true
-        # Also copy hidden files (except .git)
-        find "$package_dir" -maxdepth 1 -name ".*" ! -name ".git" ! -name ".github" ! -name "." ! -name ".." -exec cp -R {} "$BASE_DIR/" \; 2>/dev/null || true
+        # Fallback: use tar for reliable copying of all files
+        (cd "$package_dir" && tar cf - --exclude='node_modules' --exclude='.git' --exclude='.github' --exclude='package.json' --exclude='package-lock.json' .) | (cd "$BASE_DIR" && tar xf -)
     fi
 
     # Verify critical files were copied
     if [[ ! -f "$BASE_DIR/scripts/install-global.sh" ]]; then
-        print_warning "Some files may not have been copied correctly"
-        print_status "Attempting direct copy of scripts..."
-        mkdir -p "$BASE_DIR/scripts"
-        cp -f "$package_dir/scripts/"* "$BASE_DIR/scripts/" 2>/dev/null || true
+        print_error "Critical files missing after copy"
+        print_status "Source directory: $package_dir"
+        print_status "Attempting direct copy..."
+
+        # Direct copy as last resort
+        mkdir -p "$BASE_DIR"
+        cp -R "$package_dir"/* "$BASE_DIR/" 2>/dev/null || true
+        cp -R "$package_dir"/.[!.]* "$BASE_DIR/" 2>/dev/null || true
+
+        if [[ ! -f "$BASE_DIR/scripts/install-global.sh" ]]; then
+            print_error "Installation failed - files could not be copied"
+            exit 1
+        fi
     fi
 
     # Make scripts executable
