@@ -2,11 +2,8 @@
   "name": "@agent-os/cli",
   "version": "2.0.4",
   "description": "Spec-driven agentic development framework CLI",
-  "main": "scripts/agent-os",
-  "bin": {
-    "agent-os": "./scripts/agent-os",
-    "agent-os-install": "./scripts/npx-install.sh"
-  },
+  "main": "scripts/npx-install.sh",
+  "bin": "./scripts/npx-install.sh",
   "scripts": {
     "postinstall": "bash scripts/npx-install.sh"
   },

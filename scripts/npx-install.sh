@@ -40,34 +40,45 @@ trap cleanup EXIT
 # -----------------------------------------------------------------------------
 
 detect_installation_source() {
-    # Check if we're being run from an npm package installation
-    if [[ -n "$npm_package_name" ]]; then
-        echo "npm"
-    # Check if we're being run from npx with a GitHub repo
+    local script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+    # Check if we're being run from npx (npm temp directory)
+    if [[ "$script_dir" == *"/node_modules/"* ]] || [[ "$script_dir" == *"/_npx/"* ]]; then
+        # NPX installation - check if it has .git (GitHub install)
+        if [[ -d "$script_dir/../.git" ]]; then
+            echo "github"
+        else
+            echo "npm"
+        fi
+    # Check if AGENT_OS_REPO environment variable is set
     elif [[ -n "$AGENT_OS_REPO" ]]; then
         echo "github"
-    # Check if we're in a git clone
-    elif [[ -d "$(dirname "$0")/../.git" ]]; then
+    # Check if we're in a git clone (local development)
+    elif [[ -d "$script_dir/../.git" ]]; then
         echo "local"
     else
-        echo "unknown"
+        # Default to npm for npx installations
+        echo "npm"
     fi
 }
 
 install_from_npm() {
-    print_status "Installing from npm package..."
+    local source="${1:-npm package}"
+    print_status "Installing from $source..."
 
-    # The package is already downloaded to node_modules
+    # The package is already downloaded by npx
     # Copy everything to ~/.agent-os
-    local package_dir="$(dirname "$0")/.."
+    local package_dir="$(cd "$(dirname "$0")/.." && pwd)"
 
     if [[ -d "$BASE_DIR" ]]; then
-        print_warning "Existing installation found at $BASE_DIR"
-        read -p "Overwrite? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_status "Installation cancelled"
-            exit 0
+        if [[ -t 0 ]]; then
+            print_warning "Existing installation found at $BASE_DIR"
+            read -p "Overwrite? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_status "Installation cancelled"
+                exit 0
+            fi
         fi
         rm -rf "$BASE_DIR"
     fi
@@ -75,13 +86,18 @@ install_from_npm() {
     mkdir -p "$BASE_DIR"
 
     # Copy all files except node_modules and package files
-    rsync -av \
-        --exclude='node_modules' \
-        --exclude='package.json' \
-        --exclude='package-lock.json' \
-        --exclude='.git' \
-        --exclude='.github' \
-        "$package_dir/" "$BASE_DIR/" > /dev/null
+    if command -v rsync &> /dev/null; then
+        rsync -av \
+            --exclude='node_modules' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='.git' \
+            --exclude='.github' \
+            "$package_dir/" "$BASE_DIR/" > /dev/null
+    else
+        # Fallback to cp if rsync not available
+        cp -R "$package_dir"/* "$BASE_DIR/" 2>/dev/null || true
+    fi
 
     # Make scripts executable
     chmod +x "$BASE_DIR/scripts/"*.sh 2>/dev/null || true
@@ -180,10 +196,12 @@ main() {
 
     case $source in
         npm)
-            install_from_npm
+            install_from_npm "npm package"
             ;;
         github)
-            install_from_github
+            # When using npx github:user/repo, it clones to a temp dir
+            # We can use install_from_npm since files are already there
+            install_from_npm "GitHub repository"
             ;;
         local)
             install_from_local
