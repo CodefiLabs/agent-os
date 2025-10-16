@@ -22,6 +22,8 @@ source "$SCRIPT_DIR/common-functions.sh"
 PROFILE_NAME=""
 INHERIT_FROM=""
 COPY_FROM=""
+DETECTED_FRAMEWORKS=()
+PROJECT_DIR="$(pwd)"
 
 # -----------------------------------------------------------------------------
 # Validation Functions
@@ -55,8 +57,39 @@ get_available_profiles() {
 }
 
 # -----------------------------------------------------------------------------
-# Profile Name Input
+# Profile Name Input with Framework Detection
 # -----------------------------------------------------------------------------
+
+get_profile_name_with_detection() {
+    # Try to detect frameworks first
+    local detected_frameworks=($(detect_project_frameworks "$PROJECT_DIR"))
+
+    if [[ ${#detected_frameworks[@]} -gt 0 ]]; then
+        echo ""
+        print_success "Detected frameworks: ${detected_frameworks[*]}"
+        echo ""
+
+        local suggested_name=$(IFS=-; echo "${detected_frameworks[*]}")
+        echo "Suggested profile name: $suggested_name"
+        echo ""
+
+        echo "Would you like to:"
+        echo "1) Use suggested name and generate framework-specific standards"
+        echo "2) Enter a custom name"
+        echo ""
+        read -p "$(echo -e "${BLUE}Enter choice (1-2): ${NC}")" choice
+
+        if [[ "$choice" == "1" ]]; then
+            PROFILE_NAME=$(normalize_name "$suggested_name")
+            DETECTED_FRAMEWORKS=("${detected_frameworks[@]}")
+            print_success "Profile name set to: $PROFILE_NAME"
+            return 0
+        fi
+    fi
+
+    # Fall back to manual entry
+    get_profile_name
+}
 
 get_profile_name() {
     local valid=false
@@ -266,7 +299,36 @@ inherits_from: false
 EOF
         fi
 
+        # Add frameworks to config if detected
+        if [[ ${#DETECTED_FRAMEWORKS[@]} -gt 0 ]]; then
+            echo "" >> "$profile_path/profile-config.yml"
+            echo "frameworks:" >> "$profile_path/profile-config.yml"
+            for fw in "${DETECTED_FRAMEWORKS[@]}"; do
+                echo "  - $fw" >> "$profile_path/profile-config.yml"
+            done
+        fi
+
         print_success "Profile structure created"
+    fi
+}
+
+# Offer standards generation after profile creation
+offer_standards_generation() {
+    if [[ ${#DETECTED_FRAMEWORKS[@]} -eq 0 ]]; then
+        return
+    fi
+
+    echo ""
+    read -p "$(echo -e "${BLUE}Generate framework-specific standards using specialized agents with WebSearch? (y/N): ${NC}")" -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        generate_framework_standards "$PROFILES_DIR/$PROFILE_NAME" "${DETECTED_FRAMEWORKS[@]}"
+        echo ""
+        print_status "To generate the standards, ask Claude:"
+        echo '  "Generate framework standards for the '"$PROFILE_NAME"' profile"'
+        echo ""
+        print_status "Until generated, standards will inherit from default profile"
     fi
 }
 
@@ -286,8 +348,8 @@ main() {
     # Check for base installation updates
     check_for_base_updates
 
-    # Get profile name
-    get_profile_name
+    # Get profile name with framework detection
+    get_profile_name_with_detection
 
     # Select inheritance
     select_inheritance
@@ -297,6 +359,9 @@ main() {
 
     # Create the profile
     create_profile_structure
+
+    # Offer standards generation if frameworks were detected
+    offer_standards_generation
 
     # Success message
     echo ""

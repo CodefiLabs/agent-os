@@ -184,6 +184,136 @@ load_configuration() {
 }
 
 # -----------------------------------------------------------------------------
+# Framework Detection and Profile Matching Functions
+# -----------------------------------------------------------------------------
+
+# Offer to create profile during installation
+offer_inline_profile_creation() {
+    local frameworks=("$@")
+    local suggested_name=$(IFS=-; echo "${frameworks[*]}")
+
+    echo ""
+    print_status "Creating profile for: ${frameworks[*]}"
+    echo ""
+    echo "Suggested profile name: $suggested_name"
+    read -p "Use this name (or enter custom name): " profile_name < /dev/tty
+
+    if [[ -z "$profile_name" ]]; then
+        profile_name="$suggested_name"
+    fi
+
+    profile_name=$(normalize_name "$profile_name")
+
+    if [[ -d "$BASE_DIR/profiles/$profile_name" ]]; then
+        print_error "Profile '$profile_name' already exists"
+        return 1
+    fi
+
+    # Create profile structure
+    mkdir -p "$BASE_DIR/profiles/$profile_name"/{standards/{global,backend,frontend,testing},workflows,agents,roles,commands,automations}
+
+    # Create profile-config.yml
+    cat > "$BASE_DIR/profiles/$profile_name/profile-config.yml" << EOF
+inherits_from: default
+frameworks:
+EOF
+    for fw in "${frameworks[@]}"; do
+        echo "  - $fw" >> "$BASE_DIR/profiles/$profile_name/profile-config.yml"
+    done
+
+    # Offer standards generation
+    echo ""
+    print_status "Framework-specific standards generation..."
+    read -p "Generate standards now using specialized agents with WebSearch? (y/N): " -n 1 -r < /dev/tty
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        generate_framework_standards "$BASE_DIR/profiles/$profile_name" "${frameworks[@]}"
+        echo ""
+        print_status "To generate the standards, ask Claude:"
+        echo '  "Generate framework standards for the '"$profile_name"' profile"'
+        echo ""
+        print_status "Until generated, standards will inherit from default profile"
+    else
+        print_status "Standards will inherit from default profile"
+        print_status "You can generate them later or customize manually in:"
+        echo "  $BASE_DIR/profiles/$profile_name/standards/"
+    fi
+
+    EFFECTIVE_PROFILE="$profile_name"
+    print_success "Profile '$profile_name' created and selected"
+}
+
+# Check if profile matches project frameworks
+check_and_suggest_profile() {
+    local detected_frameworks=($(detect_project_frameworks "$PROJECT_DIR"))
+
+    if [[ ${#detected_frameworks[@]} -eq 0 ]]; then
+        print_verbose "No frameworks detected"
+        return 0
+    fi
+
+    print_verbose "Detected frameworks: ${detected_frameworks[*]}"
+
+    # Check if current profile matches
+    local profile_matches=false
+    for framework in "${detected_frameworks[@]}"; do
+        if [[ "$EFFECTIVE_PROFILE" == *"$framework"* ]]; then
+            profile_matches=true
+            break
+        fi
+    done
+
+    if [[ "$profile_matches" == true ]]; then
+        print_success "Profile '$EFFECTIVE_PROFILE' matches detected frameworks"
+        return 0
+    fi
+
+    # Find matching profiles
+    local matching_profiles=($(find_matching_profiles "${detected_frameworks[@]}"))
+
+    echo ""
+    echo -e "${YELLOW}=== Framework Detection ===${NC}"
+    echo ""
+    echo "Detected frameworks: ${detected_frameworks[*]}"
+    echo "Current profile: $EFFECTIVE_PROFILE"
+    echo ""
+
+    if [[ ${#matching_profiles[@]} -gt 0 ]]; then
+        echo "Found matching profiles:"
+        for i in "${!matching_profiles[@]}"; do
+            echo "  $((i+1))) ${matching_profiles[$i]}"
+        done
+        echo "  $((${#matching_profiles[@]}+1))) Create new profile for these frameworks"
+        echo "  $((${#matching_profiles[@]}+2))) Continue with current profile"
+        echo ""
+        read -p "Enter choice: " choice < /dev/tty
+
+        if [[ "$choice" -le ${#matching_profiles[@]} ]] && [[ "$choice" -gt 0 ]]; then
+            EFFECTIVE_PROFILE="${matching_profiles[$((choice-1))]}"
+            print_success "Switched to profile: $EFFECTIVE_PROFILE"
+        elif [[ "$choice" -eq $((${#matching_profiles[@]}+1)) ]]; then
+            # Offer to create profile inline
+            offer_inline_profile_creation "${detected_frameworks[@]}"
+        fi
+    else
+        echo "No matching profiles found."
+        echo ""
+        echo "Would you like to:"
+        echo "1) Create a new profile optimized for these frameworks"
+        echo "2) Continue with current profile ($EFFECTIVE_PROFILE)"
+        echo ""
+        read -p "Enter choice (1-2): " choice < /dev/tty
+
+        if [[ "$choice" == "1" ]]; then
+            offer_inline_profile_creation "${detected_frameworks[@]}"
+        fi
+    fi
+
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
 # Installation Functions
 # -----------------------------------------------------------------------------
 
@@ -895,6 +1025,9 @@ main() {
 
     # Load configuration
     load_configuration
+
+    # Check and suggest profile based on detected frameworks
+    check_and_suggest_profile
 
     # Check if Agent OS is already installed
     if is_agent_os_installed "$PROJECT_DIR"; then

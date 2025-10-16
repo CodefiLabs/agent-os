@@ -505,6 +505,107 @@ should_skip_file() {
 }
 
 # -----------------------------------------------------------------------------
+# Framework Detection Functions
+# -----------------------------------------------------------------------------
+
+# Detect frameworks in a project
+detect_project_frameworks() {
+    local project_dir=${1:-$PROJECT_DIR}
+    local frameworks=()
+
+    # Node.js
+    if [[ -f "$project_dir/package.json" ]]; then
+        grep -q '"next"' "$project_dir/package.json" && frameworks+=("nextjs")
+        grep -q '"@remix-run' "$project_dir/package.json" && frameworks+=("remix")
+        grep -q '"react"' "$project_dir/package.json" && frameworks+=("react")
+        grep -q '"vue"' "$project_dir/package.json" && frameworks+=("vue")
+        grep -q '"express"' "$project_dir/package.json" && frameworks+=("express")
+        grep -q '"@nestjs' "$project_dir/package.json" && frameworks+=("nestjs")
+    fi
+
+    # PHP
+    if [[ -f "$project_dir/composer.json" ]]; then
+        grep -q '"laravel/framework"' "$project_dir/composer.json" && frameworks+=("laravel")
+        grep -q '"symfony/symfony"' "$project_dir/composer.json" && frameworks+=("symfony")
+    fi
+
+    # Ruby
+    if [[ -f "$project_dir/Gemfile" ]]; then
+        grep -q 'gem ["\']rails["\']' "$project_dir/Gemfile" && frameworks+=("rails")
+    fi
+
+    # Python
+    if [[ -f "$project_dir/requirements.txt" ]] || [[ -f "$project_dir/pyproject.toml" ]]; then
+        grep -qE 'django|Django' "$project_dir/requirements.txt" "$project_dir/pyproject.toml" 2>/dev/null && frameworks+=("django")
+        grep -qE 'flask|Flask' "$project_dir/requirements.txt" "$project_dir/pyproject.toml" 2>/dev/null && frameworks+=("flask")
+        grep -qE 'fastapi|FastAPI' "$project_dir/requirements.txt" "$project_dir/pyproject.toml" 2>/dev/null && frameworks+=("fastapi")
+    fi
+
+    echo "${frameworks[@]}"
+}
+
+# Find existing profiles that match detected frameworks
+find_matching_profiles() {
+    local frameworks=("$@")
+    local matching_profiles=()
+
+    for profile_dir in "$BASE_DIR/profiles"/*; do
+        if [[ -d "$profile_dir" ]]; then
+            local profile_name=$(basename "$profile_dir")
+            for framework in "${frameworks[@]}"; do
+                if [[ "$profile_name" == *"$framework"* ]]; then
+                    matching_profiles+=("$profile_name")
+                    break
+                fi
+            done
+        fi
+    done
+
+    echo "${matching_profiles[@]}"
+}
+
+# Generate standards based on frameworks using standards-writer agents
+generate_framework_standards() {
+    local profile_path=$1
+    shift
+    local frameworks=("$@")
+
+    local frameworks_list=$(IFS=, ; echo "${frameworks[*]}")
+    local profile_name=$(basename "$profile_path")
+
+    print_status "Generating standards for: $frameworks_list"
+    print_status "This will use specialized standards-writer agents with WebSearch..."
+    echo ""
+
+    cat << EOF
+
+Standards generation will use specialized agents to create framework-specific documentation:
+
+📋 Standards to be generated in: $profile_path/standards/
+
+1. global/tech-stack.md - Tech stack documentation
+2. global/code-style.md - Code style guidelines
+3. backend/architecture.md or frontend/architecture.md - Architecture patterns
+4. testing/testing.md - Testing standards
+
+These standards will be created by specialized standards-writer agents that research
+current best practices using WebSearch.
+
+To generate the standards, you can either:
+
+Option 1 - Manual generation:
+  Ask Claude: "Generate framework standards for the $profile_name profile"
+
+Option 2 - Via Agent OS workflows (if in a project with Agent OS):
+  The standards-writer agents will be automatically invoked during profile creation
+
+The agents will research official documentation, community standards, and best
+practices to create comprehensive, actionable standards tailored to your frameworks.
+
+EOF
+}
+
+# -----------------------------------------------------------------------------
 # Profile Functions
 # -----------------------------------------------------------------------------
 

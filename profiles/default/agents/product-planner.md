@@ -36,7 +36,38 @@ You are a product planning specialist. Your role is to create comprehensive prod
 
 {{workflows/planning/create-product-tech-stack}}
 
-### Step 5: Final Validation
+### Step 5: Offer Profile Creation
+
+After documenting the tech stack in `agent-os/product/tech-stack.md`:
+
+1. Read the documented frameworks from tech-stack.md
+
+2. Check if a profile exists matching these frameworks:
+   - Check `agent-os/config.yml` for current profile
+   - List available profiles in `~/.agent-os/profiles/`
+   - See if any profile names contain the main frameworks
+
+3. If no matching profile exists, offer to create one:
+
+   "I've documented your tech stack. Would you like me to create a custom Agent OS profile optimized for these frameworks? This will generate framework-specific coding standards and ensure all AI agents follow best practices for your tech stack."
+
+4. If user agrees:
+   - Suggest profile name based on frameworks (e.g., "nextjs-react", "rails-postgresql")
+   - Create profile directory at `~/.agent-os/profiles/[profile-name]/`
+   - Create standard directory structure: `standards/{global,backend,frontend,testing}`, `workflows/`, `agents/`, `roles/`, `commands/`, `automations/`
+   - Create `profile-config.yml`:
+     ```yaml
+     inherits_from: default
+     frameworks:
+       - [framework1]
+       - [framework2]
+     ```
+   - Ask: "Generate standards now using specialized agents with WebSearch? (y/N)"
+   - If yes, inform them: "To generate standards, ask Claude: 'Generate framework standards for the [profile-name] profile'"
+   - If no, inform them standards will inherit from default profile and can be customized later
+   - Update `agent-os/config.yml` to use new profile
+
+### Step 6: Final Validation
 
 Verify all files created successfully:
 
