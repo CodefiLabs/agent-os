@@ -13,6 +13,7 @@ BASE_DIR="$HOME/agent-os"
 PROJECT_DIR="$(pwd)"
 
 # Source common functions
+# shellcheck source=common-functions.sh
 source "$SCRIPT_DIR/common-functions.sh"
 
 # -----------------------------------------------------------------------------
@@ -89,7 +90,7 @@ parse_arguments() {
                 ;;
             --multi-agent-mode)
                 read MULTI_AGENT_MODE shift_count <<< "$(parse_bool_flag "$MULTI_AGENT_MODE" "$2")"
-                shift $shift_count
+                shift "$shift_count"
                 ;;
             --multi-agent-tool)
                 MULTI_AGENT_TOOL="$2"
@@ -97,7 +98,7 @@ parse_arguments() {
                 ;;
             --single-agent-mode)
                 read SINGLE_AGENT_MODE shift_count <<< "$(parse_bool_flag "$SINGLE_AGENT_MODE" "$2")"
-                shift $shift_count
+                shift "$shift_count"
                 ;;
             --single-agent-tool)
                 SINGLE_AGENT_TOOL="$2"
@@ -129,7 +130,7 @@ parse_arguments() {
                 ;;
             --install-tools)
                 read INSTALL_TOOLS shift_count <<< "$(parse_bool_flag "$INSTALL_TOOLS" "$2")"
-                shift $shift_count
+                shift "$shift_count"
                 ;;
             --tools-scope)
                 TOOLS_SCOPE="$2"
@@ -246,7 +247,8 @@ EOF
 
 # Check if profile matches project frameworks
 check_and_suggest_profile() {
-    local detected_frameworks=($(detect_project_frameworks "$PROJECT_DIR"))
+    local detected_frameworks
+    IFS=' ' read -r -a detected_frameworks <<< "$(detect_project_frameworks "$PROJECT_DIR")"
 
     if [[ ${#detected_frameworks[@]} -eq 0 ]]; then
         print_verbose "No frameworks detected"
@@ -270,7 +272,8 @@ check_and_suggest_profile() {
     fi
 
     # Find matching profiles
-    local matching_profiles=($(find_matching_profiles "${detected_frameworks[@]}"))
+    local matching_profiles
+    IFS=' ' read -r -a matching_profiles <<< "$(find_matching_profiles "${detected_frameworks[@]}")"
 
     echo ""
     echo -e "${YELLOW}=== Framework Detection ===${NC}"
@@ -515,35 +518,35 @@ install_claude_code_files() {
 
                 # Build role data with delimiter-based format for multi-line values
                 local role_data=""
-                role_data="${role_data}<<<id>>>"$'\n'"$id"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___id___"$'\n'"$id"$'\n'"___END___"$'\n'
 
                 local description=$(parse_role_yaml "$implementers_file" "implementers" "$id" "description")
-                role_data="${role_data}<<<description>>>"$'\n'"$description"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___description___"$'\n'"$description"$'\n'"___END___"$'\n'
 
                 local your_role=$(parse_role_yaml "$implementers_file" "implementers" "$id" "your_role")
-                role_data="${role_data}<<<your_role>>>"$'\n'"$your_role"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___your_role___"$'\n'"$your_role"$'\n'"___END___"$'\n'
 
                 local tools=$(parse_role_yaml "$implementers_file" "implementers" "$id" "tools")
-                role_data="${role_data}<<<tools>>>"$'\n'"$tools"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___tools___"$'\n'"$tools"$'\n'"___END___"$'\n'
 
                 local model=$(parse_role_yaml "$implementers_file" "implementers" "$id" "model")
-                role_data="${role_data}<<<model>>>"$'\n'"$model"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___model___"$'\n'"$model"$'\n'"___END___"$'\n'
 
                 local color=$(parse_role_yaml "$implementers_file" "implementers" "$id" "color")
-                role_data="${role_data}<<<color>>>"$'\n'"$color"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___color___"$'\n'"$color"$'\n'"___END___"$'\n'
 
                 # Get areas of responsibility
                 local areas=$(parse_role_yaml "$implementers_file" "implementers" "$id" "areas_of_responsibility")
-                role_data="${role_data}<<<areas_of_responsibility>>>"$'\n'"$areas"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___areas_of_responsibility___"$'\n'"$areas"$'\n'"___END___"$'\n'
 
                 # Get example areas outside of responsibility
                 local example_areas_outside=$(parse_role_yaml "$implementers_file" "implementers" "$id" "example_areas_outside_of_responsibility")
-                role_data="${role_data}<<<example_areas_outside_of_responsibility>>>"$'\n'"$example_areas_outside"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___example_areas_outside_of_responsibility___"$'\n'"$example_areas_outside"$'\n'"___END___"$'\n'
 
                 # Get standards
                 local standards_patterns=$(get_role_standards "$implementers_file" "implementers" "$id")
                 local standards_list=$(process_standards "" "$BASE_DIR" "$EFFECTIVE_PROFILE" "$standards_patterns")
-                role_data="${role_data}<<<implementer_standards>>>"$'\n'"$standards_list"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___implementer_standards___"$'\n'"$standards_list"$'\n'"___END___"$'\n'
 
                 # Compile agent
                 local dest="$PROJECT_DIR/.claude/agents/agent-os/${id}.md"
@@ -569,35 +572,35 @@ install_claude_code_files() {
 
                 # Build role data with delimiter-based format for multi-line values
                 local role_data=""
-                role_data="${role_data}<<<id>>>"$'\n'"$id"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___id___"$'\n'"$id"$'\n'"___END___"$'\n'
 
                 local description=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "description")
-                role_data="${role_data}<<<description>>>"$'\n'"$description"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___description___"$'\n'"$description"$'\n'"___END___"$'\n'
 
                 local your_role=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "your_role")
-                role_data="${role_data}<<<your_role>>>"$'\n'"$your_role"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___your_role___"$'\n'"$your_role"$'\n'"___END___"$'\n'
 
                 local tools=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "tools")
-                role_data="${role_data}<<<tools>>>"$'\n'"$tools"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___tools___"$'\n'"$tools"$'\n'"___END___"$'\n'
 
                 local model=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "model")
-                role_data="${role_data}<<<model>>>"$'\n'"$model"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___model___"$'\n'"$model"$'\n'"___END___"$'\n'
 
                 local color=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "color")
-                role_data="${role_data}<<<color>>>"$'\n'"$color"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___color___"$'\n'"$color"$'\n'"___END___"$'\n'
 
                 # Get areas of responsibility
                 local areas=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "areas_of_responsibility")
-                role_data="${role_data}<<<areas_of_responsibility>>>"$'\n'"$areas"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___areas_of_responsibility___"$'\n'"$areas"$'\n'"___END___"$'\n'
 
                 # Get example areas outside of responsibility
                 local example_areas_outside=$(parse_role_yaml "$verifiers_file" "verifiers" "$id" "example_areas_outside_of_responsibility")
-                role_data="${role_data}<<<example_areas_outside_of_responsibility>>>"$'\n'"$example_areas_outside"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___example_areas_outside_of_responsibility___"$'\n'"$example_areas_outside"$'\n'"___END___"$'\n'
 
                 # Get standards
                 local standards_patterns=$(get_role_standards "$verifiers_file" "verifiers" "$id")
                 local standards_list=$(process_standards "" "$BASE_DIR" "$EFFECTIVE_PROFILE" "$standards_patterns")
-                role_data="${role_data}<<<verifier_standards>>>"$'\n'"$standards_list"$'\n'"<<<END>>>"$'\n'
+                role_data="${role_data}___verifier_standards___"$'\n'"$standards_list"$'\n'"___END___"$'\n'
 
                 # Compile agent
                 local dest="$PROJECT_DIR/.claude/agents/agent-os/${id}.md"
@@ -710,8 +713,14 @@ run_automation_setup_scripts() {
         return
     fi
 
+    # Extract platform names
+    local platforms=()
+    for script in "${available_scripts[@]}"; do
+        platforms+=("${script%%:*}")
+    done
+
     echo ""
-    print_status "Automation setup scripts found for: ${available_scripts[@]%%:*}"
+    print_status "Automation setup scripts found for: ${platforms[*]}"
 
     # Ask for confirmation (skip if non-interactive)
     if [[ -t 0 ]]; then

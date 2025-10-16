@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# Pre-commit hook for Agent OS
+# Validates shell scripts before allowing commit
+
+set -e
+
+echo "Running pre-commit validations..."
+
+# Find all modified shell scripts
+SHELL_SCRIPTS=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.sh$' || true)
+
+if [ -z "$SHELL_SCRIPTS" ]; then
+    echo "No shell scripts modified, skipping validation"
+    exit 0
+fi
+
+echo "Validating shell scripts:"
+echo "$SHELL_SCRIPTS"
+
+# Validate syntax
+for script in $SHELL_SCRIPTS; do
+    echo "  Checking syntax: $script"
+    bash -n "$script" || {
+        echo "ERROR: $script has syntax errors"
+        echo "Run: bash -n $script"
+        exit 1
+    }
+done
+
+# Run shellcheck if available
+if command -v shellcheck >/dev/null 2>&1; then
+    for script in $SHELL_SCRIPTS; do
+        echo "  Running shellcheck: $script"
+        shellcheck "$script" || {
+            echo "ERROR: $script has shellcheck issues"
+            echo "Run: shellcheck $script"
+            exit 1
+        }
+    done
+else
+    echo "WARNING: shellcheck not installed, skipping lint checks"
+    echo "Install with: brew install shellcheck"
+fi
+
+echo "✓ All shell script validations passed"
+exit 0

@@ -1,0 +1,31 @@
+# ShellCheck configuration for Agent OS scripts
+
+# SC2034 - Unused variables are often set for sourcing scripts
+disable=SC2034
+
+# SC2153 - BASE_DIR and similar are set by sourcing scripts, not locally
+disable=SC2153
+
+# SC2030,SC2031 - Pipeline subshell modifications are intentional in some cases
+# These are handled correctly in the code logic
+disable=SC2030,SC2031
+
+# SC2295 - Parameter expansion pattern matching is used intentionally
+disable=SC2295
+
+# SC2155 - Declare and assign separately
+# Many utility functions use command substitution for brevity
+# Separating would significantly increase code verbosity without clear benefit
+disable=SC2155
+
+# SC2001 - Use parameter expansion instead of sed
+# Complex regex patterns are more readable with sed
+disable=SC2001
+
+# SC2162 - read without -r
+# Backslash handling is intentional in many cases
+disable=SC2162
+
+# SC1091 - Not following source
+# Scripts source other files that are in the same directory
+disable=SC1091

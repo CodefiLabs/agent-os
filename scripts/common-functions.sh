@@ -27,7 +27,7 @@ NC='\033[0m' # No Color
 print_color() {
     local color=$1
     shift
-    echo -e "${color}$@${NC}"
+    echo -e "${color}$*${NC}"
 }
 
 # Print section header
@@ -520,7 +520,7 @@ detect_project_frameworks() {
         grep -q '"react"' "$project_dir/package.json" && frameworks+=("react")
         grep -q '"vue"' "$project_dir/package.json" && frameworks+=("vue")
         grep -q '"express"' "$project_dir/package.json" && frameworks+=("express")
-        grep -q '"@nestjs' "$project_dir/package.json" && frameworks+=("nestjs")
+        grep -q '"@nestjs"' "$project_dir/package.json" && frameworks+=("nestjs")
     fi
 
     # PHP
@@ -531,7 +531,7 @@ detect_project_frameworks() {
 
     # Ruby
     if [[ -f "$project_dir/Gemfile" ]]; then
-        grep -q 'gem ["\']rails["\']' "$project_dir/Gemfile" && frameworks+=("rails")
+        grep -q 'gem.*rails' "$project_dir/Gemfile" && frameworks+=("rails")
     fi
 
     # Python
@@ -577,7 +577,7 @@ generate_framework_standards() {
     print_status "This will use specialized standards-writer agents with WebSearch..."
     echo ""
 
-    cat << EOF
+    cat << 'EOF'
 
 Standards generation will use specialized agents to create framework-specific documentation:
 
@@ -860,12 +860,33 @@ process_workflows() {
             rm -f "$temp_content" "$temp_replacement"
         else
             # Instead of printing warning to stderr, insert it into the content
-            local warning_msg="⚠️ This workflow file was not found in your Agent OS base installation at ~/agent-os/profiles/$profile/workflows/${workflow_path}.md"
-            # Use perl for safer replacement with special characters
+            local warning_msg="WARNING: This workflow file was not found in your Agent OS base installation at ~/agent-os/profiles/$profile/workflows/${workflow_path}.md"
+            local temp_warning=$(mktemp)
             local temp_content=$(mktemp)
             echo "$content" > "$temp_content"
-            content=$(perl -pe "s|\Q$workflow_ref\E|$workflow_ref\n$warning_msg|g" "$temp_content")
-            rm -f "$temp_content"
+            echo "$warning_msg" > "$temp_warning"
+            content=$(perl -e '
+                my $ref = $ARGV[0];
+                my $warning_file = $ARGV[1];
+                my $content_file = $ARGV[2];
+
+                open(my $fh, "<", $warning_file) or die $!;
+                my $warning = do { local $/; <$fh> };
+                close($fh);
+                chomp $warning;
+
+                open($fh, "<", $content_file) or die $!;
+                my $content = do { local $/; <$fh> };
+                close($fh);
+
+                my $pattern = quotemeta($ref);
+                my $replacement = $ref . "\n" . $warning;
+                $content =~ s/$pattern/$replacement/g;
+
+                print $content;
+            ' "$workflow_ref" "$temp_warning" "$temp_content")
+            rm -f "$temp_content" "$temp_warning"
+            # Use perl for safer replacement with special characters
         fi
     done <<< "$workflow_refs"
 
@@ -925,13 +946,13 @@ compile_agent() {
 
         # Parse the delimiter-based format
         while IFS= read -r line; do
-            if [[ "$line" =~ ^'<<<'(.+)'>>>'$ ]]; then
+            if [[ "$line" =~ ^___(.+)___$ ]]; then
                 local key="${BASH_REMATCH[1]}"
                 local value=""
 
                 # Read until we hit <<<END>>>
                 while IFS= read -r value_line; do
-                    if [[ "$value_line" == "<<<END>>>" ]]; then
+                    if [[ "$value_line" == "___END___" ]]; then
                         break
                     fi
                     if [[ -n "$value" ]]; then

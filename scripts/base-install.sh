@@ -38,6 +38,7 @@ download_common_functions() {
 
     if curl -sL --fail "$functions_url" -o "$COMMON_FUNCTIONS_TEMP"; then
         # Source the common functions
+        # shellcheck source=/dev/null
         source "$COMMON_FUNCTIONS_TEMP"
         return 0
     else
@@ -128,7 +129,8 @@ get_all_repo_files() {
 
     # Extract owner and repo name from URL
     # From: https://github.com/owner/repo to owner/repo
-    local repo_path=$(echo "$REPO_URL" | sed 's|^https://github.com/||')
+    local repo_path
+    repo_path="${REPO_URL#https://github.com/}"
 
     print_verbose "Repository path: $repo_path"
 
@@ -137,7 +139,8 @@ get_all_repo_files() {
 
     print_verbose "Fetching from: $tree_url"
 
-    local response=$(curl -sL "$tree_url")
+    local response
+    response=$(curl -sL "$tree_url")
 
     # Check if we got a valid response
     if [[ -z "$response" ]]; then
@@ -149,7 +152,8 @@ get_all_repo_files() {
     print_verbose "Response preview: ${response:0:500}"
 
     if echo "$response" | grep -q '"message"'; then
-        local error_msg=$(echo "$response" | grep -o '"message":"[^"]*"' | sed 's/"message":"//' | sed 's/"$//')
+        local error_msg
+        error_msg=$(echo "$response" | grep -o '"message":"[^"]*"' | sed 's/"message":"//' | sed 's/"$//')
         print_verbose "GitHub API error: $error_msg"
         return 1
     fi
@@ -200,7 +204,8 @@ download_all_files() {
     print_verbose "Fetching repository file list..."
 
     # Get list of all files (excluding our exclusion list)
-    local all_files=$(get_all_repo_files)
+    local all_files
+    all_files=$(get_all_repo_files)
 
     if [[ -z "$all_files" ]]; then
         echo "0"  # Return 0 to indicate no files downloaded
@@ -213,7 +218,8 @@ download_all_files() {
             local dest_file="${dest_base}/${file_path}"
 
             # Create directory if needed
-            local dir_path=$(dirname "$dest_file")
+            local dir_path
+            dir_path=$(dirname "$dest_file")
             [[ -d "$dir_path" ]] || mkdir -p "$dir_path"
 
             if download_file "$file_path" "$dest_file"; then
@@ -274,8 +280,8 @@ install_all_files() {
 
     # Stop spinner if running
     if [[ -n "$spinner_pid" ]]; then
-        kill $spinner_pid 2>/dev/null
-        wait $spinner_pid 2>/dev/null
+        kill "$spinner_pid" 2>/dev/null
+        wait "$spinner_pid" 2>/dev/null
         # Clear the line and restore cursor
         echo -ne "\r\033[K"
         tput cnorm 2>/dev/null || true  # Show cursor again
@@ -337,7 +343,7 @@ prompt_overwrite_choice() {
     echo "If you choose to update and overwrite, your previous base installation will be saved in ~/agent-os.backup."
     echo ""
 
-    read -p "Enter your choice (1-5): " choice < /dev/tty
+    read -r -p "Enter your choice (1-5): " choice < /dev/tty
 
     case $choice in
         1)
@@ -395,13 +401,15 @@ overwrite_profile() {
     print_status "Updating default profile..."
 
     # Get all files and filter for profiles/default
-    local all_files=$(get_all_repo_files | grep "^profiles/default/")
+    local all_files
+    all_files=$(get_all_repo_files | grep "^profiles/default/")
 
     if [[ -n "$all_files" ]]; then
         while IFS= read -r file_path; do
             if [[ -n "$file_path" ]]; then
                 local dest_file="${BASE_DIR}/${file_path}"
-                local dir_path=$(dirname "$dest_file")
+                local dir_path
+                dir_path=$(dirname "$dest_file")
                 [[ -d "$dir_path" ]] || mkdir -p "$dir_path"
 
                 if download_file "$file_path" "$dest_file"; then
@@ -426,13 +434,15 @@ overwrite_scripts() {
     print_status "Updating scripts..."
 
     # Get all files and filter for scripts/
-    local all_files=$(get_all_repo_files | grep "^scripts/")
+    local all_files
+    all_files=$(get_all_repo_files | grep "^scripts/")
 
     if [[ -n "$all_files" ]]; then
         while IFS= read -r file_path; do
             if [[ -n "$file_path" ]]; then
                 local dest_file="${BASE_DIR}/${file_path}"
-                local dir_path=$(dirname "$dest_file")
+                local dir_path
+                dir_path=$(dirname "$dest_file")
                 [[ -d "$dir_path" ]] || mkdir -p "$dir_path"
 
                 if download_file "$file_path" "$dest_file"; then
@@ -518,7 +528,8 @@ check_existing_installation() {
         fi
 
         # Get latest version from GitHub
-        local latest_version=$(get_latest_version)
+        local latest_version
+        latest_version=$(get_latest_version)
 
         # Prompt for overwrite choice
         prompt_overwrite_choice "$current_version" "$latest_version"

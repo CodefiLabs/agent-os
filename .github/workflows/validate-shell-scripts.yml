@@ -1,0 +1,36 @@
+name: Validate Shell Scripts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.sh'
+      - '.github/workflows/validate-shell-scripts.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.sh'
+      - '.github/workflows/validate-shell-scripts.yml'
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          severity: error
+
+      - name: Validate all shell scripts syntax
+        run: |
+          echo "Validating bash syntax for all .sh files..."
+          find . -name "*.sh" -type f | while read -r script; do
+            echo "Checking: $script"
+            bash -n "$script" || exit 1
+          done
+          echo "✓ All shell scripts have valid syntax"

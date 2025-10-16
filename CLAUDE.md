@@ -371,10 +371,48 @@ Each MCP server is defined as a JSON file in `profiles/default/tools/mcp/` with:
 
 See `profiles/default/tools/README.md` for detailed documentation.
 
+## Shell Script Development
+
+### Validation Tools
+
+Agent OS uses strict validation for all shell scripts:
+
+- **Syntax validation**: `bash -n` catches parse errors
+- **Lint checking**: `shellcheck` enforces best practices
+- **Pre-commit hooks**: Automatic validation before commits
+- **CI/CD checks**: GitHub Actions validates all PRs
+
+### Best Practices
+
+See [Bash Style Guide](docs/bash-style-guide.md) for:
+- Quote escaping rules (single vs double quotes)
+- Emoji and special character handling
+- Common shellcheck issues and fixes
+- Pattern matching best practices
+
+### Development Workflow
+
+```bash
+# 1. Install git hooks
+./scripts/install-hooks.sh
+
+# 2. Make changes to shell scripts
+vim scripts/common-functions.sh
+
+# 3. Validate manually
+bash -n scripts/common-functions.sh
+shellcheck scripts/common-functions.sh
+
+# 4. Commit (hooks validate automatically)
+git commit -m "fix: update function"
+```
+
 ## Key Files Reference
 
 - `config.yml` - Configuration for multi/single agent mode, profile selection
 - `scripts/common-functions.sh` - Shared utilities for YAML parsing, output formatting, string normalization
+- `scripts/install-hooks.sh` - Install pre-commit hooks for shell script validation
+- `scripts/.shellcheckrc` - ShellCheck configuration with documented suppressions
 - `profiles/default/roles/implementers.yml` - Specialized implementation agent definitions
 - `profiles/default/roles/verifiers.yml` - Verification agent definitions
 - `profiles/default/standards/global/tech-stack.md` - Template for defining project tech stack
@@ -382,6 +420,7 @@ See `profiles/default/tools/README.md` for detailed documentation.
 - `profiles/default/tools/mcp/` - Pre-configured MCP server definitions
 - `profiles/default/tools/setup/` - MCP installation scripts for Claude Code and Cursor
 - `profiles/default/automations/` - CI/CD automation configurations
+- `docs/bash-style-guide.md` - Comprehensive bash scripting style guide
 
 ## Documentation
 
