@@ -173,11 +173,15 @@ install_from_local() {
 
 offer_global_cli_install() {
     echo ""
-    read -p "Install 'agent-os' command globally? (Y/n): " -n 1 -r
+    read -p "Install 'agent-os' command globally? (Y/n): " -r
     echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+    # Default to "y" if empty (user just pressed Enter)
+    REPLY=${REPLY:-y}
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
         if [[ -f "$BASE_DIR/scripts/install-global.sh" ]]; then
             bash "$BASE_DIR/scripts/install-global.sh"
+        else
+            print_error "Global install script not found at $BASE_DIR/scripts/install-global.sh"
         fi
     fi
 }

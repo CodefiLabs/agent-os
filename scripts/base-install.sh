@@ -510,9 +510,11 @@ perform_fresh_installation() {
     # Offer to install CLI globally
     if [[ -t 0 ]]; then
         echo ""
-        read -p "Install 'agent-os' command globally for easy CLI access? (Y/n): " -n 1 -r
+        read -p "Install 'agent-os' command globally for easy CLI access? (Y/n): " -r
         echo ""
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        # Default to "y" if empty (user just pressed Enter)
+        REPLY=${REPLY:-y}
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
             echo ""
             if bash "$BASE_DIR/scripts/install-global.sh"; then
                 echo ""
