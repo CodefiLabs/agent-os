@@ -1,0 +1,194 @@
+#!/bin/bash
+
+# =============================================================================
+# Agent OS CLI
+# Unified command-line interface for all Agent OS operations
+# =============================================================================
+
+set -e
+
+# Get the directory where this script is located
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+BASE_DIR="$HOME/.agent-os"
+
+# Source common functions if available
+if [[ -f "$SCRIPT_DIR/common-functions.sh" ]]; then
+    # shellcheck source=common-functions.sh
+    source "$SCRIPT_DIR/common-functions.sh"
+else
+    # Minimal fallback if common-functions.sh is not available
+    print_error() { echo -e "\033[0;31m✗ $1\033[0m"; }
+    print_status() { echo -e "\033[0;36m$1\033[0m"; }
+fi
+
+# -----------------------------------------------------------------------------
+# Version
+# -----------------------------------------------------------------------------
+
+VERSION="2.0.2"
+
+# -----------------------------------------------------------------------------
+# Help Functions
+# -----------------------------------------------------------------------------
+
+show_help() {
+    cat << 'EOF'
+agent-os - Spec-driven agentic development framework
+
+Usage: agent-os <command> [options]
+
+Commands:
+  install                Install Agent OS into current project
+  update                 Update Agent OS in current project
+  create-profile         Create a new custom profile
+  create-role            Create a new implementer or verifier role
+  version                Show Agent OS version
+  help                   Show this help message
+
+Install Options:
+  --profile NAME                    Use specified profile (default: from config.yml)
+  --multi-agent-mode [true|false]   Enable/disable multi-agent mode
+  --multi-agent-tool TOOL           Specify multi-agent tool (claude-code)
+  --single-agent-mode [true|false]  Enable/disable single-agent mode
+  --single-agent-tool TOOL          Specify single-agent tool
+  --re-install                      Delete and reinstall Agent OS
+  --install-tools [true|false]      Install MCP tools (default: prompt)
+  --tools-scope [user|project]      Tools installation scope (default: user)
+  --dry-run                         Show what would be done without doing it
+  --verbose                         Show detailed output
+
+Update Options:
+  --profile NAME                    Use specified profile
+  --multi-agent-mode [true|false]   Enable/disable multi-agent mode
+  --multi-agent-tool TOOL           Specify multi-agent tool
+  --single-agent-mode [true|false]  Enable/disable single-agent mode
+  --single-agent-tool TOOL          Specify single-agent tool
+  --re-install                      Delete and reinstall Agent OS
+  --overwrite-all                   Overwrite all existing files
+  --overwrite-standards             Overwrite existing standards
+  --overwrite-commands              Overwrite existing commands
+  --overwrite-agents                Overwrite existing agents
+  --overwrite-automations           Overwrite existing automation files
+  --dry-run                         Show what would be done
+  --verbose                         Show detailed output
+
+Create Profile Options:
+  --name NAME                       Profile name
+  --inherit-from PROFILE            Inherit from existing profile
+  --copy-from PROFILE               Copy from existing profile
+  --frameworks FRAMEWORK[,...]      Frameworks for this profile
+  --non-interactive                 Skip all prompts
+
+Create Role Options:
+  --type TYPE                       Role type (implementer, verifier, researcher)
+  --name NAME                       Role name/ID
+  --profile PROFILE                 Target profile (default: default)
+  --description TEXT                Role description
+  --your-role TEXT                  Role definition text
+  --tools TOOL[,...]                Tools available to role
+  --model MODEL                     Model to use (sonnet, opus, haiku)
+  --color COLOR                     Color for role
+  --areas AREA[,...]                Areas of responsibility
+  --out-of-scope AREA[,...]         Example areas outside of responsibility
+  --standards PATTERN[,...]         Standards patterns (e.g., global/*, backend/*)
+  --verified-by VERIFIER[,...]      Verifier IDs (implementers only)
+  --non-interactive                 Skip all prompts
+
+Examples:
+  # Install Agent OS in project
+  agent-os install
+
+  # Install with specific profile and multi-agent mode
+  agent-os install --profile rails --multi-agent-mode true --multi-agent-tool claude-code
+
+  # Install non-interactively (for Claude Code autonomous use)
+  agent-os install --install-tools false --dry-run false
+
+  # Update with overwriting standards
+  agent-os update --overwrite-standards
+
+  # Create a new profile
+  agent-os create-profile --name nextjs-app
+
+  # Create a new profile non-interactively
+  agent-os create-profile --name rails-api --inherit-from default --frameworks ruby-on-rails,postgresql
+
+  # Create a new implementer role
+  agent-os create-role --type implementer --name payment-engineer
+
+  # Create a role non-interactively
+  agent-os create-role --type implementer --name api-engineer \
+    --description "Handles API endpoints and controllers" \
+    --tools "Write,Read,Bash" --model sonnet --color blue \
+    --areas "API endpoints,Controllers,Request/response handling" \
+    --standards "global/*,backend/*" --non-interactive
+
+EOF
+}
+
+show_version() {
+    echo "agent-os version $VERSION"
+    if [[ -f "$BASE_DIR/config.yml" ]]; then
+        local installed_version
+        installed_version=$(grep "^version:" "$BASE_DIR/config.yml" 2>/dev/null | sed 's/version: *//' | tr -d '\r\n' || echo "unknown")
+        echo "Installed version: $installed_version"
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Command Routing
+# -----------------------------------------------------------------------------
+
+route_command() {
+    local command=$1
+    shift
+
+    case $command in
+        install|i)
+            exec "$SCRIPT_DIR/project-install.sh" "$@"
+            ;;
+        update|u)
+            exec "$SCRIPT_DIR/project-update.sh" "$@"
+            ;;
+        create-profile|profile)
+            exec "$SCRIPT_DIR/create-profile.sh" "$@"
+            ;;
+        create-role|role)
+            exec "$SCRIPT_DIR/create-role.sh" "$@"
+            ;;
+        version|v|-v|--version)
+            show_version
+            ;;
+        help|h|-h|--help)
+            show_help
+            ;;
+        *)
+            print_error "Unknown command: $command"
+            echo ""
+            echo "Run 'agent-os help' for usage information"
+            exit 1
+            ;;
+    esac
+}
+
+# -----------------------------------------------------------------------------
+# Main Execution
+# -----------------------------------------------------------------------------
+
+main() {
+    # Check if no arguments provided
+    if [[ $# -eq 0 ]]; then
+        show_help
+        exit 0
+    fi
+
+    # Get command
+    local command=$1
+    shift
+
+    # Route to appropriate script
+    route_command "$command" "$@"
+}
+
+# Run main function
+main "$@"

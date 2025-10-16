@@ -504,6 +504,20 @@ perform_fresh_installation() {
     echo ""
     print_success "Agent OS has been successfully installed!"
     echo ""
+
+    # Offer to install CLI globally
+    if [[ -t 0 ]]; then
+        echo ""
+        read -p "Install 'agent-os' command globally for easy CLI access? (Y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            echo ""
+            if bash "$BASE_DIR/scripts/install-global.sh"; then
+                echo ""
+            fi
+        fi
+    fi
+
     echo -e "${GREEN}Next steps:${NC}"
     echo ""
     echo -e "${GREEN}1) Customize your profile's standards in ~/.agent-os/profiles/default/standards${NC}"
@@ -512,7 +526,8 @@ perform_fresh_installation() {
     echo -e "   ${YELLOW}cd path/to/project-directory${NC}"
     echo ""
     echo -e "${GREEN}3) Install Agent OS in your project by running:${NC}"
-    echo -e "   ${YELLOW}~/.agent-os/scripts/project-install.sh${NC}"
+    echo -e "   ${YELLOW}agent-os install${NC}"
+    echo -e "   (or ${YELLOW}~/.agent-os/scripts/project-install.sh${NC} if CLI not installed globally)"
     echo ""
     echo -e "${GREEN}Visit the docs for guides on how to use Agent OS: https://buildermethods.com/agent-os${NC}"
     echo ""

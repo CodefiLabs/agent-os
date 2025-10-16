@@ -87,32 +87,67 @@ curl -sSL https://raw.githubusercontent.com/buildermethods/agent-os/main/setup/b
 curl -sSL https://raw.githubusercontent.com/buildermethods/agent-os/main/setup/base.sh | bash -s -- --claude-code --cursor
 ```
 
-### Project Installation
-Copies Agent OS into a project's `.agent-os/` directory. Must be run from project root:
+The base installation will prompt you to install the `agent-os` CLI command globally for easier access.
+
+### CLI Installation
+
+Agent OS provides a unified CLI for all operations. After base installation, you can optionally install it globally:
 
 ```bash
-# If base installation is in home directory
+~/.agent-os/scripts/install-global.sh
+```
+
+Once installed, the `agent-os` command is available system-wide.
+
+### Project Installation
+Install Agent OS into a project's `.agent-os/` directory. Must be run from project root:
+
+```bash
+# Using CLI (if installed globally)
+agent-os install
+
+# Or using direct script path
 ~/.agent-os/scripts/project-install.sh
 
 # With custom profile
-~/.agent-os/scripts/project-install.sh --profile custom-profile-name
+agent-os install --profile custom-profile-name
 
 # Override mode settings
-~/.agent-os/scripts/project-install.sh --multi-agent-mode true --multi-agent-tool claude-code
+agent-os install --multi-agent-mode true --multi-agent-tool claude-code
+
+# Non-interactive (for AI agents like Claude Code)
+agent-os install --install-tools false
 
 # Overwrite specific files during reinstall
-~/.agent-os/scripts/project-install.sh --overwrite-standards --overwrite-agents
+agent-os install --overwrite-standards --overwrite-agents
 ```
 
 ### Project Update
 Updates an existing project installation with latest Agent OS version:
 
 ```bash
+# Using CLI
+agent-os update
+
+# Or using direct script path
 ~/.agent-os/scripts/project-update.sh
 
 # With options
-~/.agent-os/scripts/project-update.sh --overwrite-standards --profile default
+agent-os update --overwrite-standards --profile default
 ```
+
+### CLI Commands
+
+The `agent-os` CLI provides these commands:
+
+- `agent-os install` - Install Agent OS into current project
+- `agent-os update` - Update Agent OS in current project
+- `agent-os create-profile` - Create a new custom profile
+- `agent-os create-role` - Create a new implementer or verifier role
+- `agent-os version` - Show Agent OS version
+- `agent-os help` - Show help message
+
+See [CLI Reference](docs/cli-reference.md) for detailed documentation.
 
 ## Development Workflow
 
