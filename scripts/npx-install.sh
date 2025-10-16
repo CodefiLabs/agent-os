@@ -87,16 +87,27 @@ install_from_npm() {
 
     # Copy all files except node_modules and package files
     if command -v rsync &> /dev/null; then
-        rsync -av \
+        rsync -a \
             --exclude='node_modules' \
             --exclude='package.json' \
             --exclude='package-lock.json' \
             --exclude='.git' \
             --exclude='.github' \
-            "$package_dir/" "$BASE_DIR/" > /dev/null
+            "$package_dir/" "$BASE_DIR/" 2>&1 | grep -v "^sending\|^sent\|^total" || true
     else
         # Fallback to cp if rsync not available
+        # Copy regular files and directories
         cp -R "$package_dir"/* "$BASE_DIR/" 2>/dev/null || true
+        # Also copy hidden files (except .git)
+        find "$package_dir" -maxdepth 1 -name ".*" ! -name ".git" ! -name ".github" ! -name "." ! -name ".." -exec cp -R {} "$BASE_DIR/" \; 2>/dev/null || true
+    fi
+
+    # Verify critical files were copied
+    if [[ ! -f "$BASE_DIR/scripts/install-global.sh" ]]; then
+        print_warning "Some files may not have been copied correctly"
+        print_status "Attempting direct copy of scripts..."
+        mkdir -p "$BASE_DIR/scripts"
+        cp -f "$package_dir/scripts/"* "$BASE_DIR/scripts/" 2>/dev/null || true
     fi
 
     # Make scripts executable
